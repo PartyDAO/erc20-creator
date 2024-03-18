@@ -13,6 +13,13 @@ contract ERC20Creator {
 
     IUniswapV2Router02 public immutable uniswapV2Router;
 
+    struct TokenConfiguration {
+        uint256 totalSupply;
+        uint256 numTokensForDistribution;
+        uint256 numTokensForRecipient;
+        uint256 numTokensForLP;
+    }
+
     constructor(
         address _uniswapV2Router,
         address _feeRecipient,
@@ -25,43 +32,35 @@ contract ERC20Creator {
 
     function createToken(
         address partyAddress,
-        string memory name,
-        string memory symbol,
-        uint256 totalSupply,
-        uint256 numTokensForDistribution,
-        uint256 numTokensForRecipient,
-        uint256 numTokensForLP,
+        string calldata name,
+        string calldata symbol,
+        TokenConfiguration calldata config,
         address recipientAddress
     ) external payable returns (ERC20 token) {
-        require(
-            numTokensForDistribution + numTokensForRecipient + numTokensForLP ==
-                totalSupply,
-            "Invalid token distribution"
-        );
-
-        token = new GovernableERC20(name, symbol, totalSupply, partyAddress);
-
-        // TODO: Distribute tokens to party members
-
-        token.transfer(recipientAddress, numTokensForRecipient);
-
-        uint256 ethValue = msg.value;
-        uint256 feeAmount = (ethValue * feeBasisPoints) / 10000;
-        uint256 liquidityEthAmount = ethValue - feeAmount;
-
-        token.approve(address(uniswapV2Router), numTokensForLP);
-        (
-            uint256 amountToken,
-            uint256 amountETH,
-            uint256 liquidity
-        ) = uniswapV2Router.addLiquidityETH{value: liquidityEthAmount}(
-                address(token),
-                numTokensForLP,
-                0,
-                0,
-                address(this),
-                block.timestamp
-            );
+        // require(
+        //     numTokensForDistribution + numTokensForRecipient + numTokensForLP ==
+        //         totalSupply,
+        //     "Invalid token distribution"
+        // );
+        // token = new GovernableERC20(name, symbol, totalSupply, partyAddress);
+        // // TODO: Distribute tokens to party members
+        // token.transfer(recipientAddress, numTokensForRecipient);
+        // uint256 ethValue = msg.value;
+        // uint256 feeAmount = (ethValue * feeBasisPoints) / 10000;
+        // uint256 liquidityEthAmount = ethValue - feeAmount;
+        // token.approve(address(uniswapV2Router), numTokensForLP);
+        // (
+        //     uint256 amountToken,
+        //     uint256 amountETH,
+        //     uint256 liquidity
+        // ) = uniswapV2Router.addLiquidityETH{value: liquidityEthAmount}(
+        //         address(token),
+        //         numTokensForLP,
+        //         0,
+        //         0,
+        //         address(this),
+        //         block.timestamp
+        //     );
     }
 
     function setFeeRecipient(address _feeRecipient) external {
