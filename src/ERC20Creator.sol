@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Permit.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Permit.sol";
+import "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import "uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+import "uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 
 contract ERC20Creator {
     address public feeRecipient;
