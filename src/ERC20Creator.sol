@@ -37,14 +37,27 @@ contract ERC20Creator {
         TokenConfiguration calldata config,
         address recipientAddress
     ) external payable returns (ERC20 token) {
-        // require(
-        //     numTokensForDistribution + numTokensForRecipient + numTokensForLP ==
-        //         totalSupply,
-        //     "Invalid token distribution"
-        // );
-        // token = new GovernableERC20(name, symbol, totalSupply, partyAddress);
-        // // TODO: Distribute tokens to party members
-        // token.transfer(recipientAddress, numTokensForRecipient);
+        require(
+            config.numTokensForDistribution +
+                config.numTokensForRecipient +
+                config.numTokensForLP ==
+                config.totalSupply,
+            "Invalid token distribution"
+        );
+        token = new GovernableERC20(
+            name,
+            symbol,
+            config.totalSupply,
+            address(this)
+        );
+        // distribute tokens to recipient
+        token.transfer(recipientAddress, config.numTokensForRecipient);
+
+        // distribute tokens to party
+        token.transfer(partyAddress, config.numTokensForDistribution);
+
+        // create the LP
+
         // uint256 ethValue = msg.value;
         // uint256 feeAmount = (ethValue * feeBasisPoints) / 10000;
         // uint256 liquidityEthAmount = ethValue - feeAmount;
