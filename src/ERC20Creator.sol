@@ -30,22 +30,13 @@ contract ERC20Creator {
         uint256 totalSupply,
         uint256 numTokensForDistribution,
         uint256 numTokensForRecipient,
-        uint256 numTokensForLP,
         address recipientAddress
-    ) external payable {
-        require(partyAddress != address(0), "Invalid party address");
-        require(
-            numTokensForDistribution + numTokensForRecipient + numTokensForLP ==
-                totalSupply,
-            "Invalid token distribution"
-        );
+    ) external payable returns (ERC20 token) {
+        uint256 numTokensForLP = totalSupply -
+            numTokensForDistribution -
+            numTokensForRecipient;
 
-        ERC20Permit token = new GovernableERC20(
-            name,
-            symbol,
-            totalSupply,
-            partyAddress
-        );
+        token = new GovernableERC20(name, symbol, totalSupply, partyAddress);
 
         // TODO: Distribute tokens to party members
 
