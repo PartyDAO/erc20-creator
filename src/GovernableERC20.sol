@@ -8,12 +8,20 @@ import "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
 
 contract GovernableERC20 is ERC20, ERC20Permit, ERC20Votes {
     constructor(
-        string memory name,
-        string memory symbol,
-        uint256 totalSupply,
-        address receiver
-    ) ERC20(name, symbol) ERC20Permit(name) {
-        _mint(receiver, totalSupply);
+        string memory _name,
+        string memory _symbol,
+        uint256 _totalSupply,
+        address _receiver
+    ) ERC20(_name, _symbol) ERC20Permit(_name) {
+        _mint(_receiver, _totalSupply);
+    }
+
+    // Default to self-delegation if no delegate is set. This enables snapshots
+    // to work as expected, otherwise when transferring votes to undelegated addresses
+    // the votes would not be moved (see `Votes._moveDelegateVotes`).
+    function delegates(address account) public view override returns (address) {
+        address delegate = super.delegates(account);
+        return delegate == address(0) ? account : delegate;
     }
 
     // The following functions are overrides required by Solidity.
