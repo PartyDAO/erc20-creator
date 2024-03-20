@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../lib/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+import "../lib/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "./../lib/party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {GovernableERC20, ERC20} from "./GovernableERC20.sol";
 
@@ -27,6 +28,8 @@ contract ERC20Creator {
 
     ITokenDistributor public immutable TOKEN_DISTRIBUTOR;
     IUniswapV2Router02 public immutable UNISWAP_V2_ROUTER;
+    IUniswapV2Factory public immutable UNISWAP_V2_FACTORY;
+    address public immutable WETH;
 
     address public feeRecipient;
     uint16 public feeBasisPoints;
@@ -41,11 +44,15 @@ contract ERC20Creator {
     constructor(
         ITokenDistributor _tokenDistributor,
         IUniswapV2Router02 _uniswapV2Router,
+        IUniswapV2Factory _uniswapV2Factory,
+        address _weth,
         address _feeRecipient,
         uint16 _feeBasisPoints
     ) {
         TOKEN_DISTRIBUTOR = _tokenDistributor;
         UNISWAP_V2_ROUTER = _uniswapV2Router;
+        UNISWAP_V2_FACTORY = _uniswapV2Factory;
+        WETH = _weth;
         feeRecipient = _feeRecipient;
         feeBasisPoints = _feeBasisPoints;
     }
@@ -112,6 +119,10 @@ contract ERC20Creator {
             recipientAddress,
             config
         );
+    }
+
+    function getPair(address token) external view returns (address) {
+        return UNISWAP_V2_FACTORY.getPair(token, WETH);
     }
 
     function setFeeRecipient(address _feeRecipient) external {
