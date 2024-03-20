@@ -4,6 +4,7 @@ pragma solidity ^0.8;
 import "forge-std/Test.sol";
 
 import "../src/ERC20Creator.sol";
+import {ERC20Votes} from "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
 
 contract MockParty {
     struct GovernanceValues {
@@ -82,17 +83,21 @@ contract ERC20CreatorTest is Test {
         uint256 numTokensForRecipient = 10 ether;
         uint256 numTokensForLP = 80 ether;
 
-        ERC20 token = creator.createToken{value: eth}(
-            address(party),
-            "Leet H4x0rs",
-            "1337",
-            ERC20Creator.TokenConfiguration({
-                totalSupply: totalSupply,
-                numTokensForDistribution: numTokensForDistribution,
-                numTokensForRecipient: numTokensForRecipient,
-                numTokensForLP: numTokensForLP
-            }),
-            receiver
+        ERC20Votes token = ERC20Votes(
+            address(
+                creator.createToken{value: eth}(
+                    address(party),
+                    "Leet H4x0rs",
+                    "1337",
+                    ERC20Creator.TokenConfiguration({
+                        totalSupply: totalSupply,
+                        numTokensForDistribution: numTokensForDistribution,
+                        numTokensForRecipient: numTokensForRecipient,
+                        numTokensForLP: numTokensForLP
+                    }),
+                    receiver
+                )
+            )
         );
         address pair = creator.getPair(address(token));
 
@@ -106,5 +111,18 @@ contract ERC20CreatorTest is Test {
             numTokensForDistribution
         );
         assertEq(token.totalSupply(), totalSupply);
+
+        Vm.Wallet memory wallet = vm.createWallet("Tester");
+        vm.prank(wallet.addr);
+        token.delegate(wallet.addr);
+
+        vm.prank(receiver);
+        token.transfer(wallet.addr, 100);
+
+        assertEq(token.balanceOf(wallet.addr), 100);
+        assertEq(token.balanceOf(receiver), numTokensForRecipient - 100);
+
+        assertEq(token.getVotes(wallet.addr), 100);
+        assertEq(token.getVotes(receiver), 0);
     }
 }
