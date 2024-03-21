@@ -23,4 +23,4 @@ jobs:
         run: forge install
 
       - name: Run tests
-        run: forge -vvv --evm-version shanghai test --fork-url ${{ secrets.SEPOLIA_FORK_URL }}
+        run: forge test -vvv --evm-version shanghai --fork-url ${{ secrets.SEPOLIA_FORK_URL }}
