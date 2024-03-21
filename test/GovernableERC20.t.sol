@@ -31,10 +31,14 @@ contract GovernableERC20Test is Test {
             receiver
         );
 
+        vm.prank(receiver);
+        token.delegate(receiver);
+
         assertEq(token.name(), name);
         assertEq(token.symbol(), symbol);
         assertEq(token.totalSupply(), totalSupply);
         assertEq(token.balanceOf(receiver), totalSupply);
+        assertEq(token.getVotes(receiver), totalSupply);
     }
 
     function test_snapshotting() public {
@@ -42,11 +46,18 @@ contract GovernableERC20Test is Test {
 
         GovernableERC20 token = _createToken();
 
+        vm.prank(receiver);
+        token.delegate(receiver);
+
         // Transfer some tokens to another address
         address other = vm.addr(2);
         uint256 amount = 100e18;
+
         vm.prank(receiver);
         token.transfer(other, amount);
+        vm.prank(other);
+        token.delegate(other);
+
         assertEq(token.balanceOf(receiver), 1_000_000e18 - amount);
         assertEq(token.balanceOf(other), amount);
         assertEq(token.getVotes(receiver), 1_000_000e18 - amount);

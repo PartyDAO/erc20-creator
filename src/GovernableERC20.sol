@@ -14,14 +14,6 @@ contract GovernableERC20 is ERC20Permit, ERC20Votes {
         _mint(_receiver, _totalSupply);
     }
 
-    // Default to self-delegation if no delegate is set. This enables snapshots
-    // to work as expected, otherwise when transferring votes to undelegated addresses
-    // the votes would not be moved (see `Votes._moveDelegateVotes`).
-    function delegates(address account) public view override returns (address) {
-        address delegate = super.delegates(account);
-        return delegate == address(0) ? account : delegate;
-    }
-
     // The following functions are overrides required by Solidity.
 
     function _update(
