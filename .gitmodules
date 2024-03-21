@@ -13,3 +13,6 @@
 [submodule "lib/party-protocol"]
 	path = lib/party-protocol
 	url = https://github.com/PartyDAO/party-protocol
+[submodule "lib/v3-periphery"]
+	path = lib/v3-periphery
+	url = https://github.com/Uniswap/v3-periphery
