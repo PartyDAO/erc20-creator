@@ -13,12 +13,10 @@ contract FeeCollector {
     INonfungiblePositionManager public immutable POSITION_MANAGER;
     ITokenDistributor public immutable TOKEN_DISTRIBUTOR;
     address payable public immutable PARTY_DAO;
-    ERC20 public immutable TOKEN;
     IWETH public immutable WETH;
 
     ITokenDistributor public tokenDistributor;
     uint16 public feeBps;
-    bool private _isToken0WETH;
 
     constructor(
         INonfungiblePositionManager _positionManager,
@@ -30,22 +28,10 @@ contract FeeCollector {
         TOKEN_DISTRIBUTOR = _tokenDistributor;
         PARTY_DAO = _partyDao;
         WETH = _weth;
-
-        (, , address token0, address token1, , , , , , ) = POSITION_MANAGER
-            .positions(TOKEN_ID);
-
-        if (token0 == address(WETH)) {
-            _isToken0WETH = true;
-            TOKEN = ERC20(token1);
-        } else if (token1 == address(WETH)) {
-            _isToken0WETH = false;
-            TOKEN = ERC20(token0);
-        } else {
-            revert("WETH not found");
-        }
     }
 
     function collectAndDistributeFees(
+        ERC20 token,
         uint256 positionTokenId
     ) external returns (uint256 ethAmount, uint256 tokenAmount) {
         // Collect fees from the LP position
@@ -59,20 +45,21 @@ contract FeeCollector {
             });
 
         (uint256 amount0, uint256 amount1) = POSITION_MANAGER.collect(params);
+        (, , address token0, address token1, , , , , , ) = POSITION_MANAGER
+            .positions(TOKEN_ID);
 
-        if (_isToken0WETH) {
-            ethAmount = amount0;
-            tokenAmount = amount1;
-        } else {
-            ethAmount = amount1;
+        if (token0 == address(token)) {
             tokenAmount = amount0;
+            ethAmount = amount1;
+        } else if (token1 == address(token)) {
+            tokenAmount = amount1;
+            ethAmount = amount0;
+        } else {
+            revert("Invalid pair");
         }
 
-        ERC20 token = TOKEN;
-        IWETH weth = WETH;
-
         // Convert WETH to ETH
-        weth.withdraw(ethAmount);
+        WETH.withdraw(ethAmount);
 
         // Take fee on ETH from the LP position
         uint256 fee = (ethAmount * feeBps) / 1e4;
