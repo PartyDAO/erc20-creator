@@ -7,7 +7,7 @@ import {IUniswapV3Pool} from "@uniswap/v3-core/interfaces/IUniswapV3Pool.sol";
 import "./../lib/party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {GovernableERC20, ERC20} from "./GovernableERC20.sol";
 
-contract ERC20Creator {
+contract ERC20CreatorV3 {
     event ERC20Created(
         address indexed token,
         address indexed party,
