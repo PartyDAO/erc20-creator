@@ -6,6 +6,8 @@ import "forge-std/Test.sol";
 import "../src/ERC20Creator.sol";
 import {ERC20Votes} from "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
 
+// MUST run with --fork $SEPOLIA_RPC_URL --evm-version shanghai
+
 contract MockParty {
     struct GovernanceValues {
         uint40 voteDuration;
@@ -73,7 +75,7 @@ contract ERC20CreatorTest is Test {
         );
     }
 
-    function test_createToken() public {
+    function testForked_createToken() public {
         address receiver = vm.addr(2);
         uint256 eth = 10 ether;
         uint256 fee = (eth * feeBasisPoints) / 1e4;
