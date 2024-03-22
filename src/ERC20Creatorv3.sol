@@ -32,6 +32,7 @@ contract ERC20CreatorV3 {
     INonfungiblePositionManager public immutable UNISWAP_V3_POSITION_MANAGER;
     IUniswapV3Factory public immutable UNISWAP_V3_FACTORY;
     address public immutable WETH;
+    uint256 private constant X96 = 2 ** 96;
 
     address public feeRecipient;
     uint16 public feeBasisPoints;
@@ -64,8 +65,8 @@ contract ERC20CreatorV3 {
         string calldata name,
         string calldata symbol,
         TokenConfiguration calldata config,
-        address recipientAddress,
-        uint160 sqrtPriceX96
+        address tokenRecipientAddress,
+        address lpRecipientAddress
     ) external payable returns (ERC20 token) {
         if (
             config.numTokensForDistribution +
@@ -106,42 +107,53 @@ contract ERC20CreatorV3 {
 
         // Create and initialize pool
         address pool = UNISWAP_V3_FACTORY.createPool(
-            WETH,
             address(token),
+            WETH,
             POOL_FEE
         );
+
+        uint160 sqrtPriceX96 = uint160((sqrt(
+            (numETHForLP * 1e18) / config.numTokensForLP
+        ) * X96) / 1e9);
+
         IUniswapV3Pool(pool).initialize(sqrtPriceX96);
 
+        token.approve(
+            address(UNISWAP_V3_POSITION_MANAGER),
+            config.numTokensForLP
+        );
+
+        // TODO: claim excess eth
         UNISWAP_V3_POSITION_MANAGER.mint{value: numETHForLP}(
             INonfungiblePositionManager.MintParams({
-                token0: WETH,
-                token1: address(token),
+                token0: address(token),
+                token1: WETH,
                 fee: POOL_FEE,
                 tickLower: -887200,
                 tickUpper: 887200,
-                amount0Desired: numETHForLP,
-                amount1Desired: config.numTokensForLP,
+                amount0Desired: config.numTokensForLP,
+                amount1Desired: numETHForLP,
                 amount0Min: 0,
                 amount1Min: 0,
-                recipient: address(0),
+                recipient: lpRecipientAddress,
                 deadline: block.timestamp
             })
         );
 
-        // Transfer tokens to recipient
-        token.transfer(recipientAddress, config.numTokensForRecipient);
+        // Transfer tokens to token recipient
+        token.transfer(tokenRecipientAddress, config.numTokensForRecipient);
 
         emit ERC20Created(
             address(token),
             partyAddress,
-            recipientAddress,
+            tokenRecipientAddress,
             config
         );
     }
 
-    // function getPair(address token) external view returns (address) {
-    //     return UNISWAP_V3_FACTORY.getPair(token, WETH);
-    // }
+    function getPool(address token) external view returns (address) {
+        return UNISWAP_V3_FACTORY.getPool(token, WETH, POOL_FEE);
+    }
 
     function setFeeRecipient(address _feeRecipient) external {
         address oldFeeRecipient = feeRecipient;
@@ -154,5 +166,49 @@ contract ERC20CreatorV3 {
         if (msg.sender != feeRecipient) revert OnlyFeeRecipient();
         emit FeeBasisPointsUpdated(feeBasisPoints, _feeBasisPoints);
         feeBasisPoints = _feeBasisPoints;
+    }
+
+    function sqrt(uint256 x) public pure returns (uint128) {
+        if (x == 0) return 0;
+        else {
+            uint256 xx = x;
+            uint256 r = 1;
+            if (xx >= 0x100000000000000000000000000000000) {
+                xx >>= 128;
+                r <<= 64;
+            }
+            if (xx >= 0x10000000000000000) {
+                xx >>= 64;
+                r <<= 32;
+            }
+            if (xx >= 0x100000000) {
+                xx >>= 32;
+                r <<= 16;
+            }
+            if (xx >= 0x10000) {
+                xx >>= 16;
+                r <<= 8;
+            }
+            if (xx >= 0x100) {
+                xx >>= 8;
+                r <<= 4;
+            }
+            if (xx >= 0x10) {
+                xx >>= 4;
+                r <<= 2;
+            }
+            if (xx >= 0x8) {
+                r <<= 1;
+            }
+            r = (r + x / r) >> 1;
+            r = (r + x / r) >> 1;
+            r = (r + x / r) >> 1;
+            r = (r + x / r) >> 1;
+            r = (r + x / r) >> 1;
+            r = (r + x / r) >> 1;
+            r = (r + x / r) >> 1;
+            uint256 r1 = x / r;
+            return uint128(r < r1 ? r : r1);
+        }
     }
 }
