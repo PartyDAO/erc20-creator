@@ -72,7 +72,8 @@ contract ERC20CreatorV3 {
             config.numTokensForDistribution +
                 config.numTokensForRecipient +
                 config.numTokensForLP !=
-            config.totalSupply
+            config.totalSupply ||
+            config.totalSupply > type(uint112).max
         ) {
             revert InvalidTokenDistribution();
         }
@@ -85,26 +86,28 @@ contract ERC20CreatorV3 {
             address(this)
         );
 
-        // Create distribution
-        token.transfer(
-            address(TOKEN_DISTRIBUTOR),
-            config.numTokensForDistribution
-        );
-        TOKEN_DISTRIBUTOR.createErc20Distribution(
-            IERC20(address(token)),
-            Party(payable(partyAddress)),
-            payable(address(0)),
-            0
-        );
+        if (config.numTokensForDistribution > 0) {
+            // Create distribution
+            token.transfer(
+                address(TOKEN_DISTRIBUTOR),
+                config.numTokensForDistribution
+            );
+            TOKEN_DISTRIBUTOR.createErc20Distribution(
+                IERC20(address(token)),
+                Party(payable(partyAddress)),
+                payable(address(0)),
+                0
+            );
+        }
 
         // Take fee
         uint256 ethValue = msg.value;
         uint256 feeAmount = (ethValue * feeBasisPoints) / 1e4;
-        payable(feeRecipient).transfer(feeAmount);
 
         // Create locked LP pair
         uint256 numETHForLP = ethValue - feeAmount;
 
+        // TODO: Must ensure it is a new pool
         // Create and initialize pool
         address pool = UNISWAP_V3_FACTORY.createPool(
             address(token),
@@ -112,9 +115,9 @@ contract ERC20CreatorV3 {
             POOL_FEE
         );
 
-        uint160 sqrtPriceX96 = uint160((sqrt(
-            (numETHForLP * 1e18) / config.numTokensForLP
-        ) * X96) / 1e9);
+        uint160 sqrtPriceX96 = uint160(
+            (sqrt((numETHForLP * 1e18) / config.numTokensForLP) * X96) / 1e9
+        );
 
         IUniswapV3Pool(pool).initialize(sqrtPriceX96);
 
@@ -142,6 +145,9 @@ contract ERC20CreatorV3 {
 
         // Transfer tokens to token recipient
         token.transfer(tokenRecipientAddress, config.numTokensForRecipient);
+
+        // Transfer fee
+        feeRecipient.call{value: feeAmount, gas: 100_000}("");
 
         emit ERC20Created(
             address(token),
