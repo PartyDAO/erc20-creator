@@ -69,7 +69,6 @@ contract ERC20Creator {
                 config.numTokensForRecipient +
                 config.numTokensForLP !=
             config.totalSupply ||
-            config.totalSupply > type(uint112).max ||
             config.numTokensForLP < 1e4
         ) {
             revert InvalidTokenDistribution();
