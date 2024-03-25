@@ -79,12 +79,9 @@ contract ERC20CreatorV3 {
         }
 
         // Create token
-        token = new GovernableERC20(
-            name,
-            symbol,
-            config.totalSupply,
-            address(this)
-        );
+        token = new GovernableERC20{
+            salt: keccak256(abi.encode(blockhash(block.number), this))
+        }(name, symbol, config.totalSupply, address(this));
 
         if (config.numTokensForDistribution > 0) {
             // Create distribution
@@ -107,8 +104,7 @@ contract ERC20CreatorV3 {
         // Create locked LP pair
         uint256 numETHForLP = ethValue - feeAmount;
 
-        // TODO: Must ensure it is a new pool
-        // Create and initialize pool
+        // Create and initialize pool. Reverts if pool already created.
         address pool = UNISWAP_V3_FACTORY.createPool(
             address(token),
             WETH,
