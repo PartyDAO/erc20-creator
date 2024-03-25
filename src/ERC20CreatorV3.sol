@@ -80,7 +80,7 @@ contract ERC20CreatorV3 {
 
         // Create token
         token = new GovernableERC20{
-            salt: keccak256(abi.encode(blockhash(block.number), this))
+            salt: keccak256(abi.encode(blockhash(block.number), msg.sender))
         }(name, symbol, config.totalSupply, address(this));
 
         if (config.numTokensForDistribution > 0) {
