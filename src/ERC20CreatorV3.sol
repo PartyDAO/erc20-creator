@@ -168,6 +168,7 @@ contract ERC20CreatorV3 {
         feeBasisPoints = _feeBasisPoints;
     }
 
+    // https://ethereum-magicians.org/t/eip-7054-gas-efficient-square-root-calculation-with-binary-search-approach/14539
     function sqrt(uint256 x) public pure returns (uint128) {
         if (x == 0) return 0;
         else {
