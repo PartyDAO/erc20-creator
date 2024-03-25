@@ -68,7 +68,8 @@ contract ERC20Creator {
             config.numTokensForDistribution +
                 config.numTokensForRecipient +
                 config.numTokensForLP !=
-            config.totalSupply
+            config.totalSupply ||
+            config.totalSupply > type(uint112).max
         ) {
             revert InvalidTokenDistribution();
         }
@@ -81,22 +82,23 @@ contract ERC20Creator {
             address(this)
         );
 
-        // Create distribution
-        token.transfer(
-            address(TOKEN_DISTRIBUTOR),
-            config.numTokensForDistribution
-        );
-        TOKEN_DISTRIBUTOR.createErc20Distribution(
-            IERC20(address(token)),
-            Party(payable(partyAddress)),
-            payable(address(0)),
-            0
-        );
+        if (config.numTokensForDistribution > 0) {
+            // Create distribution
+            token.transfer(
+                address(TOKEN_DISTRIBUTOR),
+                config.numTokensForDistribution
+            );
+            TOKEN_DISTRIBUTOR.createErc20Distribution(
+                IERC20(address(token)),
+                Party(payable(partyAddress)),
+                payable(address(0)),
+                0
+            );
+        }
 
         // Take fee
         uint256 ethValue = msg.value;
         uint256 feeAmount = (ethValue * feeBasisPoints) / 1e4;
-        payable(feeRecipient).transfer(feeAmount);
 
         // Create locked LP pair
         uint256 numETHForLP = ethValue - feeAmount;
@@ -112,6 +114,9 @@ contract ERC20Creator {
 
         // Transfer tokens to recipient
         token.transfer(recipientAddress, config.numTokensForRecipient);
+
+        // Send fee
+        feeRecipient.call{value: feeAmount, gas: 100_000}("");
 
         emit ERC20Created(
             address(token),
