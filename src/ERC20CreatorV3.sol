@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INonfungiblePositionManager.sol";
+import {IMulticall} from "@uniswap/v3-periphery/interfaces/IMulticall.sol";
 import {IUniswapV3Factory} from "@uniswap/v3-core/interfaces/IUniswapV3Factory.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/interfaces/IUniswapV3Pool.sol";
 import "./../lib/party-protocol/contracts/distribution/ITokenDistributor.sol";
@@ -122,28 +123,41 @@ contract ERC20CreatorV3 {
             config.numTokensForLP
         );
 
-        // TODO: claim excess eth
-        UNISWAP_V3_POSITION_MANAGER.mint{value: numETHForLP}(
-            INonfungiblePositionManager.MintParams({
-                token0: address(token),
-                token1: WETH,
-                fee: POOL_FEE,
-                tickLower: -887200,
-                tickUpper: 887200,
-                amount0Desired: config.numTokensForLP,
-                amount1Desired: numETHForLP,
-                amount0Min: 0,
-                amount1Min: 0,
-                recipient: lpRecipientAddress,
-                deadline: block.timestamp
-            })
+        bytes[] memory calls = new bytes[](2);
+        calls[0] = abi.encodeCall(
+            UNISWAP_V3_POSITION_MANAGER.mint,
+            (
+                INonfungiblePositionManager.MintParams({
+                    token0: address(token),
+                    token1: WETH,
+                    fee: POOL_FEE,
+                    tickLower: -887200,
+                    tickUpper: 887200,
+                    amount0Desired: config.numTokensForLP,
+                    amount1Desired: numETHForLP,
+                    amount0Min: 0,
+                    amount1Min: 0,
+                    recipient: lpRecipientAddress,
+                    deadline: block.timestamp
+                })
+            )
         );
+        calls[1] = abi.encodePacked(
+            UNISWAP_V3_POSITION_MANAGER.refundETH.selector
+        );
+
+        IMulticall(address(UNISWAP_V3_POSITION_MANAGER)).multicall{
+            value: numETHForLP
+        }(calls);
 
         // Transfer tokens to token recipient
         token.transfer(tokenRecipientAddress, config.numTokensForRecipient);
 
         // Transfer fee
         feeRecipient.call{value: feeAmount, gas: 100_000}("");
+
+        // Transfer remaining ETH to the party
+        msg.sender.call{value: address(this).balance}("");
 
         emit ERC20Created(
             address(token),
@@ -169,6 +183,8 @@ contract ERC20CreatorV3 {
         emit FeeBasisPointsUpdated(feeBasisPoints, _feeBasisPoints);
         feeBasisPoints = _feeBasisPoints;
     }
+
+    receive() external payable {}
 
     // https://ethereum-magicians.org/t/eip-7054-gas-efficient-square-root-calculation-with-binary-search-approach/14539
     function sqrt(uint256 x) public pure returns (uint128) {
