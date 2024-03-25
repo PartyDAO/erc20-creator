@@ -23,6 +23,7 @@ contract ERC20Creator {
         uint16 newFeeBasisPoints
     );
 
+    error InvalidFeeBasisPoints();
     error InvalidTokenDistribution();
     error OnlyFeeRecipient();
 
@@ -54,6 +55,7 @@ contract ERC20Creator {
         UNISWAP_V2_FACTORY = _uniswapV2Factory;
         WETH = _weth;
         feeRecipient = _feeRecipient;
+        if (_feeBasisPoints > 5e3) revert InvalidFeeBasisPoints();
         feeBasisPoints = _feeBasisPoints;
     }
 
@@ -139,6 +141,7 @@ contract ERC20Creator {
 
     function setFeeBasisPoints(uint16 _feeBasisPoints) external {
         if (msg.sender != feeRecipient) revert OnlyFeeRecipient();
+        if (_feeBasisPoints > 5e3) revert InvalidFeeBasisPoints();
         emit FeeBasisPointsUpdated(feeBasisPoints, _feeBasisPoints);
         feeBasisPoints = _feeBasisPoints;
     }
