@@ -26,6 +26,7 @@ contract ERC20Creator {
         uint16 newFeeBasisPoints
     );
 
+    error InvalidFeeBasisPoints();
     error InvalidTokenDistribution();
     error OnlyFeeRecipient();
 
@@ -57,6 +58,7 @@ contract ERC20Creator {
         UNISWAP_V2_FACTORY = _uniswapV2Factory;
         WETH = _weth;
         feeRecipient = _feeRecipient;
+        if (_feeBasisPoints > 5e3) revert InvalidFeeBasisPoints();
         feeBasisPoints = _feeBasisPoints;
     }
 
@@ -71,7 +73,8 @@ contract ERC20Creator {
             config.numTokensForDistribution +
                 config.numTokensForRecipient +
                 config.numTokensForLP !=
-            config.totalSupply
+            config.totalSupply ||
+            config.totalSupply > type(uint112).max
         ) {
             revert InvalidTokenDistribution();
         }
@@ -84,22 +87,23 @@ contract ERC20Creator {
             address(this)
         );
 
-        // Create distribution
-        token.transfer(
-            address(TOKEN_DISTRIBUTOR),
-            config.numTokensForDistribution
-        );
-        TOKEN_DISTRIBUTOR.createErc20Distribution(
-            IERC20(address(token)),
-            Party(payable(partyAddress)),
-            payable(address(0)),
-            0
-        );
+        if (config.numTokensForDistribution > 0) {
+            // Create distribution
+            token.transfer(
+                address(TOKEN_DISTRIBUTOR),
+                config.numTokensForDistribution
+            );
+            TOKEN_DISTRIBUTOR.createErc20Distribution(
+                IERC20(address(token)),
+                Party(payable(partyAddress)),
+                payable(address(0)),
+                0
+            );
+        }
 
         // Take fee
         uint256 ethValue = msg.value;
         uint256 feeAmount = (ethValue * feeBasisPoints) / 1e4;
-        payable(feeRecipient).transfer(feeAmount);
 
         // Create locked LP pair
         uint256 numETHForLP = ethValue - feeAmount;
@@ -115,6 +119,9 @@ contract ERC20Creator {
 
         // Transfer tokens to recipient
         token.transfer(recipientAddress, config.numTokensForRecipient);
+
+        // Send fee
+        feeRecipient.call{value: feeAmount, gas: 100_000}("");
 
         emit ERC20Created(
             address(token),
@@ -140,6 +147,7 @@ contract ERC20Creator {
 
     function setFeeBasisPoints(uint16 _feeBasisPoints) external {
         if (msg.sender != feeRecipient) revert OnlyFeeRecipient();
+        if (_feeBasisPoints > 5e3) revert InvalidFeeBasisPoints();
         emit FeeBasisPointsUpdated(feeBasisPoints, _feeBasisPoints);
         feeBasisPoints = _feeBasisPoints;
     }
