@@ -10,7 +10,10 @@ contract ERC20Creator {
     event ERC20Created(
         address indexed token,
         address indexed party,
-        address recipient,
+        address indexed recipient,
+        string name,
+        string symbol,
+        uint256 ethValue,
         TokenConfiguration config
     );
 
@@ -117,6 +120,9 @@ contract ERC20Creator {
             address(token),
             partyAddress,
             recipientAddress,
+            name,
+            symbol,
+            ethValue,
             config
         );
     }
