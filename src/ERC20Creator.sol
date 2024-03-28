@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../lib/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "../lib/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
-import "./../lib/party-protocol/contracts/distribution/ITokenDistributor.sol";
+import "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {GovernableERC20, ERC20} from "./GovernableERC20.sol";
 
 contract ERC20Creator {

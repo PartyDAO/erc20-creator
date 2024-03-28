@@ -6,23 +6,32 @@ import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INon
 import {IMulticall} from "@uniswap/v3-periphery/interfaces/IMulticall.sol";
 import {IUniswapV3Factory} from "@uniswap/v3-core/interfaces/IUniswapV3Factory.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/interfaces/IUniswapV3Pool.sol";
+import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {ITokenDistributor, IERC20, Party} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
-import {GovernableERC20, ERC20} from "./GovernableERC20.sol";
+import {GovernableERC20} from "./GovernableERC20.sol";
 
-contract ERC20CreatorV3 {
+contract ERC20CreatorV3 is IERC721Receiver {
     using MathLib for uint256;
+
+    struct TokenDistributionConfiguration {
+        uint256 totalSupply; // Total supply of the token
+        uint256 numTokensForDistribution; // Number of tokens to distribute to the party
+        uint256 numTokensForRecipient; // Number of tokens to send to the `tokenRecipient`
+        uint256 numTokensForLP; // Number of tokens for the Uniswap V3 LP
+    }
 
     event ERC20Created(
         address indexed token,
         address indexed party,
         address recipient,
-        TokenConfiguration config
+        TokenDistributionConfiguration config
     );
 
     event FeeRecipientUpdated(
         address indexed oldFeeRecipient,
         address indexed newFeeRecipient
     );
+
     event FeeBasisPointsUpdated(
         uint16 oldFeeBasisPoints,
         uint16 newFeeBasisPoints
@@ -31,22 +40,16 @@ contract ERC20CreatorV3 {
     error InvalidTokenDistribution();
     error OnlyFeeRecipient();
 
-    uint24 internal constant POOL_FEE = 10_000; // 1% fee
-    ITokenDistributor public immutable TOKEN_DISTRIBUTOR;
     INonfungiblePositionManager public immutable UNISWAP_V3_POSITION_MANAGER;
     IUniswapV3Factory public immutable UNISWAP_V3_FACTORY;
+    /// @dev Helper constant for calculating sqrtPriceX96
+    uint256 private constant _X96 = 2 ** 96;
+
+    ITokenDistributor public immutable TOKEN_DISTRIBUTOR;
     address public immutable WETH;
-    uint256 private constant X96 = 2 ** 96;
 
     address public feeRecipient;
     uint16 public feeBasisPoints;
-
-    struct TokenConfiguration {
-        uint256 totalSupply;
-        uint256 numTokensForDistribution;
-        uint256 numTokensForRecipient;
-        uint256 numTokensForLP;
-    }
 
     constructor(
         ITokenDistributor _tokenDistributor,
@@ -64,14 +67,24 @@ contract ERC20CreatorV3 {
         feeBasisPoints = _feeBasisPoints;
     }
 
+    /// @notice Creates a new ERC20 token, LPs it in a locked full range Uniswap V3 position, and distributes some of the new token to party members.
+    /// @dev The party is assumed to be `msg.sender`
+    /// @param name The name of the new token
+    /// @param symbol The symbol of the new token
+    /// @param config Token distribution configuration. See above for additional information.
+    /// @param tokenRecipientAddress The address to receive the tokens allocated for the token recipient
+    /// @param feeCollectorAddress Fee collector address where the LP will get locked
+    /// @param poolFee Pool swap fee in hundredths of a basis point. This MUST be 500, 3_000, or 10_000
+    /// @return token The address of the newly created token
     function createToken(
-        address partyAddress,
         string calldata name,
         string calldata symbol,
-        TokenConfiguration calldata config,
+        TokenDistributionConfiguration calldata config,
         address tokenRecipientAddress,
-        address lpRecipientAddress
-    ) external payable returns (ERC20 token) {
+        address feeCollectorAddress,
+        uint16 poolFee
+    ) external payable returns (address) {
+        // Require that tokens are fully distributed
         if (
             config.numTokensForDistribution +
                 config.numTokensForRecipient +
@@ -82,10 +95,17 @@ contract ERC20CreatorV3 {
             revert InvalidTokenDistribution();
         }
 
-        // Create token
-        token = new GovernableERC20{
-            salt: keccak256(abi.encode(blockhash(block.number), msg.sender))
-        }(name, symbol, config.totalSupply, address(this));
+        // We use a changing salt to ensure address changes every block. If the LP position already exists, the TX will revert.
+        // Can be tried again the next block.
+        IERC20 token = IERC20(
+            address(
+                new GovernableERC20{
+                    salt: keccak256(
+                        abi.encode(blockhash(block.number), msg.sender)
+                    )
+                }(name, symbol, config.totalSupply, address(this))
+            )
+        );
 
         if (config.numTokensForDistribution > 0) {
             // Create distribution
@@ -94,31 +114,29 @@ contract ERC20CreatorV3 {
                 config.numTokensForDistribution
             );
             TOKEN_DISTRIBUTOR.createErc20Distribution(
-                IERC20(address(token)),
-                Party(payable(partyAddress)),
+                token,
+                Party(payable(msg.sender)),
                 payable(address(0)),
                 0
             );
         }
 
         // Take fee
-        uint256 ethValue = msg.value;
-        uint256 feeAmount = (ethValue * feeBasisPoints) / 1e4;
+        uint256 feeAmount = (msg.value * feeBasisPoints) / 1e4;
 
-        // Create locked LP pair
-        uint256 numETHForLP = ethValue - feeAmount;
+        uint256 numETHForLP = msg.value - feeAmount;
 
         // Create and initialize pool. Reverts if pool already created.
         address pool = UNISWAP_V3_FACTORY.createPool(
             address(token),
             WETH,
-            POOL_FEE
+            poolFee
         );
 
+        // Initialize pool for the derived starting price
         uint160 sqrtPriceX96 = uint160(
-            (((numETHForLP * 1e18) / config.numTokensForLP).sqrt() * X96) / 1e9
+            (((numETHForLP * 1e18) / config.numTokensForLP).sqrt() * _X96) / 1e9
         );
-
         IUniswapV3Pool(pool).initialize(sqrtPriceX96);
 
         token.approve(
@@ -126,66 +144,104 @@ contract ERC20CreatorV3 {
             config.numTokensForLP
         );
 
-        bytes[] memory calls = new bytes[](2);
-        calls[0] = abi.encodeCall(
-            UNISWAP_V3_POSITION_MANAGER.mint,
-            (
-                INonfungiblePositionManager.MintParams({
-                    token0: address(token),
-                    token1: WETH,
-                    fee: POOL_FEE,
-                    tickLower: -887200,
-                    tickUpper: 887200,
-                    amount0Desired: config.numTokensForLP,
-                    amount1Desired: numETHForLP,
-                    amount0Min: 0,
-                    amount1Min: 0,
-                    recipient: lpRecipientAddress,
-                    deadline: block.timestamp
-                })
-            )
-        );
-        calls[1] = abi.encodePacked(
-            UNISWAP_V3_POSITION_MANAGER.refundETH.selector
-        );
+        // The id of the LP nft
+        uint256 lpTokenId;
 
-        IMulticall(address(UNISWAP_V3_POSITION_MANAGER)).multicall{
-            value: numETHForLP
-        }(calls);
+        {
+            // Use multicall to sweep back excess ETH
+            bytes[] memory calls = new bytes[](2);
+            calls[0] = abi.encodeCall(
+                UNISWAP_V3_POSITION_MANAGER.mint,
+                (
+                    INonfungiblePositionManager.MintParams({
+                        token0: address(token),
+                        token1: WETH,
+                        fee: poolFee,
+                        tickLower: -887200,
+                        tickUpper: 887200,
+                        amount0Desired: config.numTokensForLP,
+                        amount1Desired: numETHForLP,
+                        amount0Min: 0,
+                        amount1Min: 0,
+                        recipient: address(this),
+                        deadline: block.timestamp
+                    })
+                )
+            );
+            calls[1] = abi.encodePacked(
+                UNISWAP_V3_POSITION_MANAGER.refundETH.selector
+            );
+            bytes memory mintReturnData = IMulticall(
+                address(UNISWAP_V3_POSITION_MANAGER)
+            ).multicall{value: numETHForLP}(calls)[0];
+
+            lpTokenId = abi.decode(mintReturnData, (uint256));
+        }
 
         // Transfer tokens to token recipient
-        token.transfer(tokenRecipientAddress, config.numTokensForRecipient);
+        if (config.numTokensForRecipient > 0) {
+            token.transfer(tokenRecipientAddress, config.numTokensForRecipient);
+        }
 
         // Transfer fee
-        feeRecipient.call{value: feeAmount, gas: 100_000}("");
+        if (feeAmount > 0) {
+            feeRecipient.call{value: feeAmount, gas: 100_000}("");
+        }
 
         // Transfer remaining ETH to the party
-        msg.sender.call{value: address(this).balance}("");
+        if (address(this).balance > 0) {
+            payable(msg.sender).call{value: address(this).balance}("");
+        }
+
+        // TODO: Transfer LP token to the fee collector
 
         emit ERC20Created(
             address(token),
-            partyAddress,
+            msg.sender,
             tokenRecipientAddress,
             config
         );
+
+        return address(token);
     }
 
-    function getPool(address token) external view returns (address) {
-        return UNISWAP_V3_FACTORY.getPool(token, WETH, POOL_FEE);
+    /// @notice Get the Uniswap V3 pool for a token
+    function getPool(
+        address token,
+        uint16 poolFee
+    ) external view returns (address) {
+        return UNISWAP_V3_FACTORY.getPool(token, WETH, poolFee);
     }
 
+    /// @notice Sets the fee recipient for ETH split on LP creation
     function setFeeRecipient(address _feeRecipient) external {
         address oldFeeRecipient = feeRecipient;
+
         if (msg.sender != oldFeeRecipient) revert OnlyFeeRecipient();
-        emit FeeRecipientUpdated(oldFeeRecipient, _feeRecipient);
         feeRecipient = _feeRecipient;
+
+        emit FeeRecipientUpdated(oldFeeRecipient, _feeRecipient);
     }
 
+    /// @notice Sets the fee basis points for ETH split on LP creation
+    /// @param _feeBasisPoints The new fee basis points in basis points
     function setFeeBasisPoints(uint16 _feeBasisPoints) external {
         if (msg.sender != feeRecipient) revert OnlyFeeRecipient();
         emit FeeBasisPointsUpdated(feeBasisPoints, _feeBasisPoints);
+
         feeBasisPoints = _feeBasisPoints;
     }
 
+    /// @notice Allow contract to receive refund from position manager
     receive() external payable {}
+
+    /// @notice Allow for Uniswap V3 lp position to be received
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes calldata
+    ) external pure returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
+    }
 }
