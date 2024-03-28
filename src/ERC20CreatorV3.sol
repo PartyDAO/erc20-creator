@@ -5,7 +5,7 @@ import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INon
 import {IMulticall} from "@uniswap/v3-periphery/interfaces/IMulticall.sol";
 import {IUniswapV3Factory} from "@uniswap/v3-core/interfaces/IUniswapV3Factory.sol";
 import {IUniswapV3Pool} from "@uniswap/v3-core/interfaces/IUniswapV3Pool.sol";
-import "./../lib/party-protocol/contracts/distribution/ITokenDistributor.sol";
+import {ITokenDistributor, IERC20, Party} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {GovernableERC20, ERC20} from "./GovernableERC20.sol";
 
 contract ERC20CreatorV3 {
