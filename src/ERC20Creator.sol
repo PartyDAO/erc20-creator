@@ -87,6 +87,8 @@ contract ERC20Creator {
             address(this)
         );
 
+        // TODO: Write to mapping of token => Party, somewhere
+
         if (config.numTokensForDistribution > 0) {
             // Create distribution
             token.transfer(
