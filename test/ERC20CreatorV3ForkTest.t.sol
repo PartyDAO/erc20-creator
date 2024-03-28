@@ -10,14 +10,14 @@ import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INon
 import {IUniswapV3Factory} from "@uniswap/v3-core/interfaces/IUniswapV3Factory.sol";
 
 contract ERC20CreatorV3Test is Test {
-    ERC20CreatorV3 creator;
+    ERC20CreatorV3 public creator;
 
     ITokenDistributor public tokenDistributor;
     address public weth;
 
     Party public party;
-    address feeRecipient;
-    uint16 feeBasisPoints;
+    address public feeRecipient;
+    uint16 public feeBasisPoints;
 
     function setUp() public {
         tokenDistributor = ITokenDistributor(
@@ -47,7 +47,8 @@ contract ERC20CreatorV3Test is Test {
         );
     }
 
-    function testForked_createToken() public {
+    function testForked_createToken_1PercentFee() public {
+        uint16 poolFee = 10_000;
         address receiver = vm.addr(2);
         uint256 eth = 10 ether;
         uint256 fee = (eth * feeBasisPoints) / 1e4;
@@ -57,24 +58,26 @@ contract ERC20CreatorV3Test is Test {
         uint256 numTokensForRecipient = 10 ether;
         uint256 numTokensForLP = 80 ether;
 
+        vm.deal(address(party), 10 ether);
+        vm.prank(address(party));
         ERC20Votes token = ERC20Votes(
             address(
                 creator.createToken{value: eth}(
-                    address(party),
                     "Leet H4x0rs",
                     "1337",
-                    ERC20CreatorV3.TokenConfiguration({
+                    ERC20CreatorV3.TokenDistributionConfiguration({
                         totalSupply: totalSupply,
                         numTokensForDistribution: numTokensForDistribution,
                         numTokensForRecipient: numTokensForRecipient,
                         numTokensForLP: numTokensForLP
                     }),
                     receiver,
-                    receiver
+                    address(0),
+                    poolFee
                 )
             )
         );
-        address pool = creator.getPool(address(token));
+        address pool = creator.getPool(address(token), poolFee);
 
         assertApproxEqRel(
             token.balanceOf(pool),
@@ -82,7 +85,7 @@ contract ERC20CreatorV3Test is Test {
             0.001 ether /* 0.1% tolerance */
         );
         assertApproxEqRel(
-            ERC20(weth).balanceOf(pool),
+            IERC20(weth).balanceOf(pool),
             eth - fee,
             0.001 ether /* 0.1% tolerance */
         );
