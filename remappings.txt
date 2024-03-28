@@ -1,0 +1,11 @@
+ds-test/=lib/party-protocol/lib/forge-std/lib/ds-test/src/
+erc4626-tests/=lib/openzeppelin-contracts/lib/erc4626-tests/
+forge-std/=lib/forge-std/src/
+openzeppelin-contracts/=lib/openzeppelin-contracts/
+openzeppelin/=lib/party-protocol/lib/openzeppelin-contracts/
+party-addresses/=lib/party-protocol/lib/
+party-protocol/=lib/party-protocol/
+solmate/=lib/party-protocol/lib/solmate/src/
+@uniswap/v3-periphery/=node_modules/@uniswap/v3-periphery/contracts/
+@uniswap/v3-core/=node_modules/@uniswap/v3-core/contracts/
+@openzeppelin/contracts/=node_modules/@openzeppelin/contracts/contracts/
