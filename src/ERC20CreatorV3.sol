@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {MathLib} from "./utils/MathLib.sol";
 import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import {IMulticall} from "@uniswap/v3-periphery/interfaces/IMulticall.sol";
 import {IUniswapV3Factory} from "@uniswap/v3-core/interfaces/IUniswapV3Factory.sol";
@@ -9,6 +10,8 @@ import {ITokenDistributor, IERC20, Party} from "party-protocol/contracts/distrib
 import {GovernableERC20, ERC20} from "./GovernableERC20.sol";
 
 contract ERC20CreatorV3 {
+    using MathLib for uint256;
+
     event ERC20Created(
         address indexed token,
         address indexed party,
@@ -113,7 +116,7 @@ contract ERC20CreatorV3 {
         );
 
         uint160 sqrtPriceX96 = uint160(
-            (sqrt((numETHForLP * 1e18) / config.numTokensForLP) * X96) / 1e9
+            (((numETHForLP * 1e18) / config.numTokensForLP).sqrt() * X96) / 1e9
         );
 
         IUniswapV3Pool(pool).initialize(sqrtPriceX96);
@@ -185,49 +188,4 @@ contract ERC20CreatorV3 {
     }
 
     receive() external payable {}
-
-    // https://ethereum-magicians.org/t/eip-7054-gas-efficient-square-root-calculation-with-binary-search-approach/14539
-    function sqrt(uint256 x) public pure returns (uint128) {
-        if (x == 0) return 0;
-        else {
-            uint256 xx = x;
-            uint256 r = 1;
-            if (xx >= 0x100000000000000000000000000000000) {
-                xx >>= 128;
-                r <<= 64;
-            }
-            if (xx >= 0x10000000000000000) {
-                xx >>= 64;
-                r <<= 32;
-            }
-            if (xx >= 0x100000000) {
-                xx >>= 32;
-                r <<= 16;
-            }
-            if (xx >= 0x10000) {
-                xx >>= 16;
-                r <<= 8;
-            }
-            if (xx >= 0x100) {
-                xx >>= 8;
-                r <<= 4;
-            }
-            if (xx >= 0x10) {
-                xx >>= 4;
-                r <<= 2;
-            }
-            if (xx >= 0x8) {
-                r <<= 1;
-            }
-            r = (r + x / r) >> 1;
-            r = (r + x / r) >> 1;
-            r = (r + x / r) >> 1;
-            r = (r + x / r) >> 1;
-            r = (r + x / r) >> 1;
-            r = (r + x / r) >> 1;
-            r = (r + x / r) >> 1;
-            uint256 r1 = x / r;
-            return uint128(r < r1 ? r : r1);
-        }
-    }
 }
