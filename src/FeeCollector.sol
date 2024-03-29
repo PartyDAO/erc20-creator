@@ -14,9 +14,11 @@ contract FeeCollector is IERC721Receiver {
         uint16 percentageBps;
     }
 
-    struct FeeRecipientsData {
-        FeeRecipient[] recipients;
+    struct PositionData {
+        Party party;
+        uint40 lastCollectTimestamp;
         bool isFirstRecipientDistributor;
+        FeeRecipient[] recipients;
     }
 
     ITokenDistributor public immutable TOKEN_DISTRIBUTOR;
@@ -27,9 +29,7 @@ contract FeeCollector is IERC721Receiver {
     uint16 public partyDaoFeeBps;
     uint256 public collectCooldown = 7 days;
 
-    mapping(Party => FeeRecipientsData) public feeRecipientData;
-    mapping(INonfungiblePositionManager => Party) public positionToParty;
-    mapping(Party => uint256) public lastCollectTimestamp;
+    mapping(uint256 tokenId => PositionData) public positionData;
 
     constructor(
         ITokenDistributor _tokenDistributor,
@@ -45,12 +45,12 @@ contract FeeCollector is IERC721Receiver {
         INonfungiblePositionManager position,
         uint256 positionTokenId
     ) external returns (uint256 ethAmount, uint256 tokenAmount) {
-        Party party = positionToParty[position];
+        PositionData storage data = positionData[positionTokenId];
         require(
-            block.timestamp >= lastCollectTimestamp[party] + collectCooldown,
+            block.timestamp >= data.lastCollectTimestamp + collectCooldown,
             "Cooldown not over"
         );
-        lastCollectTimestamp[party] = block.timestamp;
+        data.lastCollectTimestamp = uint40(block.timestamp);
 
         // Collect fees from the LP position
         INonfungiblePositionManager.CollectParams
@@ -86,17 +86,15 @@ contract FeeCollector is IERC721Receiver {
         uint256 partyDaoFee = (ethAmount * partyDaoFeeBps) / 1e4;
         PARTY_DAO.call{value: partyDaoFee, gas: 100_000}("");
 
-        FeeRecipientsData memory recipientsData = feeRecipientData[party];
-
         // Distribute ETH fees to recipients
         uint256 remainingEthFees = ethAmount - partyDaoFee;
-        for (uint256 i = 0; i < recipientsData.recipients.length; i++) {
-            FeeRecipient memory recipient = recipientsData.recipients[i];
+        for (uint256 i = 0; i < data.recipients.length; i++) {
+            FeeRecipient memory recipient = data.recipients[i];
             uint256 recipientFee = (remainingEthFees *
                 recipient.percentageBps) / 1e4;
-            if (recipientsData.isFirstRecipientDistributor && i == 0) {
+            if (data.isFirstRecipientDistributor && i == 0) {
                 TOKEN_DISTRIBUTOR.createNativeDistribution{value: recipientFee}(
-                    Party(payable(recipient.recipient)),
+                    data.party,
                     payable(address(0)),
                     0
                 );
@@ -106,15 +104,15 @@ contract FeeCollector is IERC721Receiver {
         }
 
         // Distribute token fees to recipients
-        for (uint256 i = 0; i < recipientsData.recipients.length; i++) {
-            FeeRecipient memory recipient = recipientsData.recipients[i];
+        for (uint256 i = 0; i < data.recipients.length; i++) {
+            FeeRecipient memory recipient = data.recipients[i];
             uint256 recipientTokenFee = (tokenAmount *
                 recipient.percentageBps) / 1e4;
-            if (recipientsData.isFirstRecipientDistributor && i == 0) {
+            if (data.isFirstRecipientDistributor && i == 0) {
                 token.transfer(address(TOKEN_DISTRIBUTOR), recipientTokenFee);
                 TOKEN_DISTRIBUTOR.createErc20Distribution(
                     IERC20(address(token)),
-                    Party(payable(recipient.recipient)),
+                    data.party,
                     payable(address(0)),
                     0
                 );
@@ -135,33 +133,49 @@ contract FeeCollector is IERC721Receiver {
     }
 
     function setFeeRecipients(
-        Party party,
-        FeeRecipientsData calldata _feeRecipientData
+        uint256 positionTokenId,
+        PositionData calldata _positionData
     ) external {
         // TODO: Allow other contract (e.g. ERC20Creator) to set fee recipients also?
-        require(msg.sender == address(party), "Unauthorized");
+        require(
+            msg.sender == address(_positionData.party),
+            "Only party can set fee recipients"
+        );
 
         // Calculate the total percentage basis points
         uint256 totalPercentageBps = 0;
-        for (uint256 i = 0; i < _feeRecipientData.recipients.length; i++) {
-            totalPercentageBps += _feeRecipientData.recipients[i].percentageBps;
+        for (uint256 i = 0; i < _positionData.recipients.length; i++) {
+            totalPercentageBps += _positionData.recipients[i].percentageBps;
         }
 
         // Ensure the total percentage basis points equal 1e4 (100%)
         require(totalPercentageBps == 1e4, "Total percentageBps must be 100%");
 
-        feeRecipientData[party] = _feeRecipientData;
+        positionData[positionTokenId] = _positionData;
     }
 
     function onERC721Received(
         address,
         address,
-        uint256,
+        uint256 tokenId,
         bytes calldata data
     ) external returns (bytes4) {
         // TODO: Restrict to only Uniswap V3 LPs
-        Party party = abi.decode(data, (Party));
-        positionToParty[INonfungiblePositionManager(msg.sender)] = party;
+        (Party party, PositionData memory _positionData) = abi.decode(
+            data,
+            (Party, PositionData)
+        );
+
+        PositionData storage position = positionData[tokenId];
+        position.party = party;
+        position.lastCollectTimestamp = _positionData.lastCollectTimestamp;
+        position.isFirstRecipientDistributor = _positionData
+            .isFirstRecipientDistributor;
+
+        for (uint256 i = 0; i < _positionData.recipients.length; i++) {
+            position.recipients.push(_positionData.recipients[i]);
+        }
+
         return this.onERC721Received.selector;
     }
 }
