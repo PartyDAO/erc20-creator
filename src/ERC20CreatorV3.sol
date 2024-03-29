@@ -45,12 +45,21 @@ contract ERC20CreatorV3 is IERC721Receiver {
     /// @dev Helper constant for calculating sqrtPriceX96
     uint256 private constant _X96 = 2 ** 96;
 
+    /// @notice PartyDao token distributor contract
     ITokenDistributor public immutable TOKEN_DISTRIBUTOR;
     address public immutable WETH;
 
+    /// @notice Address that receives fee split of ETH at LP creation
     address public feeRecipient;
+    /// @notice Fee basis points for ETH split on LP creation
     uint16 public feeBasisPoints;
 
+    /// @param _tokenDistributor PartyDao token distributor contract
+    /// @param _uniswapV3PositionManager Uniswap V3 position manager contract
+    /// @param _uniswapV3Factory Uniswap V3 factory contract
+    /// @param _weth WETH address
+    /// @param _feeRecipient Address that receives fee split of ETH at LP creation
+    /// @param _feeBasisPoints Fee basis points for ETH split on LP creation
     constructor(
         ITokenDistributor _tokenDistributor,
         INonfungiblePositionManager _uniswapV3PositionManager,
@@ -146,7 +155,6 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
         // The id of the LP nft
         uint256 lpTokenId;
-
         {
             // Use multicall to sweep back excess ETH
             bytes[] memory calls = new bytes[](2);
