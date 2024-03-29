@@ -32,3 +32,6 @@ jobs:
 
       - name: Run tests
         run: forge test -vvv --evm-version shanghai --fork-url ${{ secrets.SEPOLIA_FORK_URL }}
+      
+      - name: Upload Selectors
+        run: forge selectors upload --all
