@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 library MathLib {
     // https://ethereum-magicians.org/t/eip-7054-gas-efficient-square-root-calculation-with-binary-search-approach/14539
-    function sqrt(uint256 x) public pure returns (uint128) {
+    function sqrt(uint256 x) internal pure returns (uint128) {
         if (x == 0) return 0;
         else {
             uint256 xx = x;

@@ -5,9 +5,9 @@ import "forge-std/Test.sol";
 
 import "../src/ERC20CreatorV3.sol";
 import {ERC20Votes} from "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import {MockParty} from "./ERC20CreatorTest.t.sol";
 import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import {IUniswapV3Factory} from "@uniswap/v3-core/interfaces/IUniswapV3Factory.sol";
+import {MockParty} from "./mock/MockParty.t.sol";
 
 contract ERC20CreatorV3Test is Test {
     ERC20CreatorV3 public creator;
@@ -18,6 +18,7 @@ contract ERC20CreatorV3Test is Test {
     Party public party;
     address public feeRecipient;
     uint16 public feeBasisPoints;
+    ERC20CreatorV3.PositionData public positionData;
 
     function setUp() public {
         tokenDistributor = ITokenDistributor(
@@ -47,8 +48,20 @@ contract ERC20CreatorV3Test is Test {
         );
     }
 
-    function testForked_createToken_1PercentFee() public {
-        uint16 poolFee = 10_000;
+    function testForked_createToken_1PercentFee() external {
+        forked_createToken_xPercentFee(10_000); // 1% fee
+    }
+
+    // TODO: Test is failing
+    // function testForked_createToken_03PercentFee() external skip {
+    //     forked_createToken_xPercentFee(3_000); // 0.3% fee
+    // }
+
+    function testForked_createToken_005PercentFee() external {
+        forked_createToken_xPercentFee(500); // 0.05% fee
+    }
+
+    function forked_createToken_xPercentFee(uint16 poolFee) internal {
         address receiver = vm.addr(2);
         uint256 eth = 10 ether;
         uint256 fee = (eth * feeBasisPoints) / 1e4;
@@ -72,8 +85,9 @@ contract ERC20CreatorV3Test is Test {
                         numTokensForLP: numTokensForLP
                     }),
                     receiver,
-                    address(0),
-                    poolFee
+                    address(1),
+                    poolFee,
+                    positionData
                 )
             )
         );

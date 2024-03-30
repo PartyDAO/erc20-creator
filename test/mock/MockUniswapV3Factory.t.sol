@@ -2,16 +2,22 @@
 pragma solidity ^0.8;
 
 import {IUniswapV3Factory} from "@uniswap/v3-core/interfaces/IUniswapV3Factory.sol";
+import {MockPool} from "./MockPool.t.sol";
 
 contract MockUniswapV3Factory is IUniswapV3Factory {
-    mapping(address => mapping(address => mapping(uint24 => address))) internal pools;
+    mapping(address => mapping(address => mapping(uint24 => address)))
+        internal pools;
 
     function createPool(
         address tokenA,
         address tokenB,
         uint24 fee
     ) external override returns (address pool) {
-        pool = address(uint160(uint256(keccak256(abi.encodePacked(tokenA, tokenB, fee)))));
+        pool = address(
+            new MockPool{
+                salt: keccak256(abi.encodePacked(tokenA, tokenB, fee))
+            }()
+        );
         pools[tokenA][tokenB][fee] = pool;
     }
 

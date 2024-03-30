@@ -40,6 +40,19 @@ contract ERC20CreatorV3 is IERC721Receiver {
     error InvalidTokenDistribution();
     error OnlyFeeRecipient();
 
+    /// @notice Delete once can be imported
+    struct FeeRecipient {
+        address recipient;
+        uint16 percentageBps;
+    }
+    /// @notice Delete once can be imported
+    struct PositionData {
+        Party party;
+        uint40 lastCollectTimestamp;
+        bool isFirstRecipientDistributor;
+        FeeRecipient[] recipients;
+    }
+
     INonfungiblePositionManager public immutable UNISWAP_V3_POSITION_MANAGER;
     IUniswapV3Factory public immutable UNISWAP_V3_FACTORY;
     /// @dev Helper constant for calculating sqrtPriceX96
@@ -91,7 +104,8 @@ contract ERC20CreatorV3 is IERC721Receiver {
         TokenDistributionConfiguration calldata config,
         address tokenRecipientAddress,
         address feeCollectorAddress,
-        uint16 poolFee
+        uint16 poolFee,
+        PositionData calldata positionData
     ) external payable returns (address) {
         // Require that tokens are fully distributed
         if (
@@ -135,18 +149,21 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
         uint256 numETHForLP = msg.value - feeAmount;
 
-        // Create and initialize pool. Reverts if pool already created.
-        address pool = UNISWAP_V3_FACTORY.createPool(
-            address(token),
-            WETH,
-            poolFee
-        );
+        {
+            // Create and initialize pool. Reverts if pool already created.
+            address pool = UNISWAP_V3_FACTORY.createPool(
+                address(token),
+                WETH,
+                poolFee
+            );
 
-        // Initialize pool for the derived starting price
-        uint160 sqrtPriceX96 = uint160(
-            (((numETHForLP * 1e18) / config.numTokensForLP).sqrt() * _X96) / 1e9
-        );
-        IUniswapV3Pool(pool).initialize(sqrtPriceX96);
+            // Initialize pool for the derived starting price
+            uint160 sqrtPriceX96 = uint160(
+                (((numETHForLP * 1e18) / config.numTokensForLP).sqrt() * _X96) /
+                    1e9
+            );
+            IUniswapV3Pool(pool).initialize(sqrtPriceX96);
+        }
 
         token.approve(
             address(UNISWAP_V3_POSITION_MANAGER),
@@ -201,7 +218,13 @@ contract ERC20CreatorV3 is IERC721Receiver {
             payable(msg.sender).call{value: address(this).balance}("");
         }
 
-        // TODO: Transfer LP token to the fee collector
+        // Transfer LP to fee collector contract
+        UNISWAP_V3_POSITION_MANAGER.safeTransferFrom(
+            address(this),
+            feeCollectorAddress,
+            lpTokenId,
+            abi.encode(positionData)
+        );
 
         emit ERC20Created(
             address(token),

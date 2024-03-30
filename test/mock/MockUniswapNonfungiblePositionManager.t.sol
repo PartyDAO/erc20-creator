@@ -45,7 +45,7 @@ contract MockUniswapNonfungiblePositionManager is IMulticall {
             WETH.deposit{value: params.amount1Desired}();
         }
 
-        return (0, 0, 0, 0);
+        return (1, 0, 0, 0);
     }
 
     function refundETH() external payable {}
@@ -53,9 +53,20 @@ contract MockUniswapNonfungiblePositionManager is IMulticall {
     function multicall(
         bytes[] calldata calls
     ) external payable returns (bytes[] memory results) {
+        results = new bytes[](calls.length);
         for (uint i = 0; i < calls.length; i++) {
-            (bool success, ) = address(this).delegatecall(calls[i]);
+            (bool success, bytes memory result) = address(this).delegatecall(
+                calls[i]
+            );
             require(success);
+            results[i] = result;
         }
     }
+
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId,
+        bytes memory callData
+    ) external {}
 }
