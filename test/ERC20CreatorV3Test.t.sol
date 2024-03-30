@@ -37,13 +37,10 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
         ERC20CreatorV3.TokenDistributionConfiguration memory tokenConfig,
         uint256 ethForLp
     ) public {
-        vm.assume(tokenConfig.numTokensForDistribution < type(uint112).max);
-        vm.assume(tokenConfig.numTokensForRecipient < type(uint112).max);
-        vm.assume(
-            tokenConfig.numTokensForLP < type(uint112).max &&
-                tokenConfig.numTokensForLP > 1e18
-        );
-        vm.assume(ethForLp > 1e9 && ethForLp < type(uint112).max);
+        tokenConfig.numTokensForDistribution = bound(tokenConfig.numTokensForDistribution, 0, type(uint112).max);
+        tokenConfig.numTokensForRecipient = bound(tokenConfig.numTokensForRecipient, 0, type(uint112).max);
+        tokenConfig.numTokensForLP = bound(tokenConfig.numTokensForLP, 1e18, type(uint112).max);
+        ethForLp = bound(ethForLp, 1e9, type(uint112).max);
 
         tokenConfig.totalSupply =
             tokenConfig.numTokensForDistribution +
