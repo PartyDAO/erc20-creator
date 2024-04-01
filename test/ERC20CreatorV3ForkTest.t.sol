@@ -5,8 +5,8 @@ import "forge-std/Test.sol";
 
 import "../src/ERC20CreatorV3.sol";
 import {ERC20Votes} from "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INonfungiblePositionManager.sol";
-import {IUniswapV3Factory} from "@uniswap/v3-core/interfaces/IUniswapV3Factory.sol";
+import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
+import {IUniswapV3Factory} from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import {MockParty} from "./mock/MockParty.t.sol";
 
 contract ERC20CreatorV3Test is Test {

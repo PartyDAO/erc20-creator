@@ -2,11 +2,11 @@
 pragma solidity ^0.8.0;
 
 import {MathLib} from "./utils/MathLib.sol";
-import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INonfungiblePositionManager.sol";
-import {IMulticall} from "@uniswap/v3-periphery/interfaces/IMulticall.sol";
-import {IUniswapV3Factory} from "@uniswap/v3-core/interfaces/IUniswapV3Factory.sol";
-import {IUniswapV3Pool} from "@uniswap/v3-core/interfaces/IUniswapV3Pool.sol";
-import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
+import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
+import {IMulticall} from "v3-periphery/interfaces/IMulticall.sol";
+import {IUniswapV3Factory} from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import {IUniswapV3Pool} from "v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {IERC721Receiver} from "openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
 import {ITokenDistributor, IERC20, Party} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {GovernableERC20} from "./GovernableERC20.sol";
 import {PositionData, FeeRecipient} from "./FeeCollector.sol";

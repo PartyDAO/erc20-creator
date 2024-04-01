@@ -2,10 +2,10 @@
 pragma solidity ^0.8;
 
 import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
-import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INonfungiblePositionManager.sol";
+import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import {MockUniswapV3Factory} from "./MockUniswapV3Factory.t.sol";
-import {IMulticall} from "@uniswap/v3-periphery/interfaces/IMulticall.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IMulticall} from "v3-periphery/interfaces/IMulticall.sol";
+import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {WETH9} from "./WETH.t.sol";
 import "forge-std/Test.sol";
 

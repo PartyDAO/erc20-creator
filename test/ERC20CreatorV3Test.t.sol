@@ -8,8 +8,8 @@ import {FeeCollector, IWETH, FeeRecipient, PositionData} from "src/FeeCollector.
 import {MockUniswapNonfungiblePositionManager} from "test/mock/MockUniswapNonfungiblePositionManager.t.sol";
 import {ITokenDistributor, Party} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {MockTokenDistributor} from "./mock/MockTokenDistributor.t.sol";
-import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INonfungiblePositionManager.sol";
-import {IUniswapV3Factory} from "@uniswap/v3-core/interfaces/IUniswapV3Factory.sol";
+import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
+import {IUniswapV3Factory} from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import {MockParty} from "./mock/MockParty.t.sol";
 
 contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
