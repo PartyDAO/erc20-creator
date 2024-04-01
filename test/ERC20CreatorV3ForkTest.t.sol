@@ -75,6 +75,7 @@ contract ERC20CreatorV3Test is Test {
         ERC20Votes token = ERC20Votes(
             address(
                 creator.createToken{value: eth}(
+                    address(party),
                     "Leet H4x0rs",
                     "1337",
                     ERC20CreatorV3.TokenDistributionConfiguration({

@@ -58,6 +58,7 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         vm.prank(address(party));
         token = IERC20(
             creator.createToken{value: 10e18}(
+                address(party),
                 "My Test Token",
                 "MTT",
                 tokenConfig,

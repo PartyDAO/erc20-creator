@@ -4,6 +4,8 @@ pragma solidity ^0.8;
 import {Test} from "forge-std/Test.sol";
 import {MockUniswapV3Deployer} from "./mock/MockUniswapV3Deployer.t.sol";
 import {ERC20CreatorV3, IERC20, FeeRecipient, PositionData} from "src/ERC20CreatorV3.sol";
+import {FeeCollector, IWETH, FeeRecipient, PositionData} from "src/FeeCollector.sol";
+import {MockUniswapNonfungiblePositionManager} from "test/mock/MockUniswapNonfungiblePositionManager.t.sol";
 import {ITokenDistributor, Party} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {MockTokenDistributor} from "./mock/MockTokenDistributor.t.sol";
 import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INonfungiblePositionManager.sol";
@@ -15,6 +17,7 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
     ERC20CreatorV3 internal creator;
     ITokenDistributor internal distributor;
     Party internal party;
+    FeeCollector internal feeCollector;
 
     event ERC20Created(
         address indexed token,
@@ -40,6 +43,13 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
             uniswap.WETH,
             address(this),
             100
+        );
+
+        feeCollector = new FeeCollector(
+            INonfungiblePositionManager(uniswap.POSITION_MANAGER),
+            distributor,
+            payable(this),
+            IWETH(uniswap.WETH)
         );
     }
 
@@ -80,7 +90,7 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
             percentageBps: 2_500
         });
 
-        PositionData memory positionParams = PositionData({
+        PositionData memory positionData = PositionData({
             party: party,
             recipients: recipients
         });
@@ -103,13 +113,14 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
         vm.prank(address(party));
         IERC20 token = IERC20(
             creator.createToken{value: ethForLp}(
+                address(party),
                 "My Test Token",
                 "MTT",
                 tokenConfig,
                 address(this),
-                address(1),
+                address(feeCollector),
                 10_000,
-                positionParams
+                positionData
             )
         );
 
@@ -132,21 +143,37 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
             IERC20(uniswap.WETH).balanceOf(pool),
             ethForLp - (ethForLp * 100) / 10_000
         );
+
+        Party party = feeCollector.getPositionData(
+            MockUniswapNonfungiblePositionManager(uniswap.POSITION_MANAGER)
+                .lastTokenId()
+        );
+        assertEq(address(party), address(party));
+
+        FeeRecipient[] memory pulledFeeRecipients = feeCollector
+            .getFeeRecipients(
+                MockUniswapNonfungiblePositionManager(uniswap.POSITION_MANAGER)
+                    .lastTokenId()
+            );
+        assertEq(pulledFeeRecipients.length, 2);
+        assertEq(abi.encode(pulledFeeRecipients[0]), abi.encode(recipients[0]));
+        assertEq(abi.encode(pulledFeeRecipients[1]), abi.encode(recipients[1]));
     }
 
     function test_createToken_invalidPoolFeeReverts() external {
         ERC20CreatorV3.TokenDistributionConfiguration memory tokenConfig;
-        PositionData memory positionParams;
+        PositionData memory positionData;
 
         vm.expectRevert(ERC20CreatorV3.InvalidPoolFee.selector);
         creator.createToken(
+            address(party),
             "My Test Token",
             "MTT",
             tokenConfig,
             address(this),
             address(1),
             10_001,
-            positionParams
+            positionData
         );
     }
 
