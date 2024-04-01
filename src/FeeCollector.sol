@@ -13,6 +13,12 @@ struct FeeRecipient {
     uint16 percentageBps;
 }
 
+struct PositionParams {
+    Party party;
+    bool isFirstRecipientDistributor;
+    FeeRecipient[] recipients;
+}
+
 struct PositionData {
     Party party;
     uint40 lastCollectTimestamp;
@@ -88,29 +94,20 @@ contract FeeCollector is IERC721Receiver {
         uint256 partyDaoFee = (ethAmount * partyDaoFeeBps) / 1e4;
         PARTY_DAO.call{value: partyDaoFee, gas: 100_000}("");
 
-        // Distribute ETH fees to recipients
+        // Distribute the ETH and tokens to recipients
         uint256 remainingEthFees = ethAmount - partyDaoFee;
         for (uint256 i = 0; i < data.recipients.length; i++) {
             FeeRecipient memory recipient = data.recipients[i];
-            uint256 recipientFee = (remainingEthFees *
+            uint256 recipientEthFee = (remainingEthFees *
                 recipient.percentageBps) / 1e4;
-            if (data.isFirstRecipientDistributor && i == 0) {
-                TOKEN_DISTRIBUTOR.createNativeDistribution{value: recipientFee}(
-                    data.party,
-                    payable(address(0)),
-                    0
-                );
-            } else {
-                payable(recipient.recipient).transfer(recipientFee);
-            }
-        }
-
-        // Distribute token fees to recipients
-        for (uint256 i = 0; i < data.recipients.length; i++) {
-            FeeRecipient memory recipient = data.recipients[i];
             uint256 recipientTokenFee = (tokenAmount *
                 recipient.percentageBps) / 1e4;
+
             if (data.isFirstRecipientDistributor && i == 0) {
+                TOKEN_DISTRIBUTOR.createNativeDistribution{
+                    value: recipientEthFee
+                }(data.party, payable(address(0)), 0);
+
                 token.transfer(address(TOKEN_DISTRIBUTOR), recipientTokenFee);
                 TOKEN_DISTRIBUTOR.createErc20Distribution(
                     IERC20(address(token)),
@@ -120,6 +117,10 @@ contract FeeCollector is IERC721Receiver {
                 );
             } else {
                 token.transfer(recipient.recipient, recipientTokenFee);
+                payable(recipient.recipient).call{
+                    value: recipientEthFee,
+                    gas: 100_000
+                }("");
             }
         }
     }
@@ -147,19 +148,17 @@ contract FeeCollector is IERC721Receiver {
         bytes calldata data
     ) external returns (bytes4) {
         require(msg.sender == address(POSITION_MANAGER), "Only V3 LP");
-        PositionData memory _position = abi.decode(data, (PositionData));
+        PositionParams memory params = abi.decode(data, (PositionParams));
 
         PositionData storage position = getPositionData[tokenId];
-        position.party = _position.party;
-        // TODO: lastCollectTimestamp should not be able to be set
-        position.lastCollectTimestamp = _position.lastCollectTimestamp;
-        position.isFirstRecipientDistributor = _position
+        position.party = params.party;
+        position.isFirstRecipientDistributor = params
             .isFirstRecipientDistributor;
 
         uint256 totalPercentageBps;
-        for (uint256 i = 0; i < _position.recipients.length; i++) {
-            position.recipients.push(_position.recipients[i]);
-            totalPercentageBps += _position.recipients[i].percentageBps;
+        for (uint256 i = 0; i < params.recipients.length; i++) {
+            position.recipients.push(params.recipients[i]);
+            totalPercentageBps += params.recipients[i].percentageBps;
         }
 
         require(totalPercentageBps == 1e4, "Total percentageBps must be 100%");
