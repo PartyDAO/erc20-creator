@@ -10,4 +10,14 @@ contract MockTokenDistributor {
         address payable feeRecipient,
         uint16 feeBps
     ) external returns (ITokenDistributor.DistributionInfo memory info) {}
+
+    function createNativeDistribution(
+        address party,
+        address payable feeRecipient,
+        uint16 feeBps
+    )
+        external
+        payable
+        returns (ITokenDistributor.DistributionInfo memory info)
+    {}
 }
