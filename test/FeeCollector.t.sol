@@ -6,7 +6,7 @@ import {MockUniswapV3Deployer, MockUniswapNonfungiblePositionManager} from "./mo
 import {MockTokenDistributor} from "./mock/MockTokenDistributor.t.sol";
 import {MockParty} from "./mock/MockParty.t.sol";
 import {ERC20CreatorV3, IERC20} from "src/ERC20CreatorV3.sol";
-import {FeeCollector, FeeRecipient, PositionData, IWETH} from "../src/FeeCollector.sol";
+import {FeeCollector, FeeRecipient, PositionParams, IWETH} from "../src/FeeCollector.sol";
 import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import {ITokenDistributor} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {IUniswapV3Factory} from "@uniswap/v3-core/interfaces/IUniswapV3Factory.sol";
@@ -44,7 +44,7 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
     }
 
     function _setUpTokenAndPool(
-        PositionData memory positionData
+        PositionParams memory positionParams
     ) internal returns (IERC20 token, uint256 tokenId) {
         ERC20CreatorV3.TokenDistributionConfiguration
             memory tokenConfig = ERC20CreatorV3.TokenDistributionConfiguration({
@@ -64,7 +64,7 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
                 address(this),
                 address(feeCollector),
                 10_000,
-                positionData
+                positionParams
             )
         );
         tokenId = MockUniswapNonfungiblePositionManager(
@@ -77,14 +77,13 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         recipients[0] = FeeRecipient(vm.addr(1), 0.5e4); // 50%
         recipients[1] = FeeRecipient(vm.addr(2), 0.5e4); // 50%
 
-        PositionData memory positionData = PositionData({
+        PositionParams memory positionParams = PositionParams({
             party: party,
-            lastCollectTimestamp: uint40(block.timestamp - 8 days),
             isFirstRecipientDistributor: true,
             recipients: recipients
         });
 
-        (IERC20 token, uint256 tokenId) = _setUpTokenAndPool(positionData);
+        (IERC20 token, uint256 tokenId) = _setUpTokenAndPool(positionParams);
 
         (
             Party storedParty,
@@ -96,10 +95,9 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         );
 
         assertEq(address(storedParty), address(party));
-        assertEq(storedLastCollectTimestamp, positionData.lastCollectTimestamp);
         assertEq(
             storedIsFirstRecipientDistributor,
-            positionData.isFirstRecipientDistributor
+            positionParams.isFirstRecipientDistributor
         );
         for (uint256 i = 0; i < recipients.length; i++) {
             assertEq(storedRecipients[i].recipient, recipients[i].recipient);
