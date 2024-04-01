@@ -39,54 +39,42 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
     ) public {
         tokenConfig.numTokensForDistribution = bound(tokenConfig.numTokensForDistribution, 0, type(uint112).max);
         tokenConfig.numTokensForRecipient = bound(tokenConfig.numTokensForRecipient, 0, type(uint112).max);
-        tokenConfig.numTokensForLP = bound(tokenConfig.numTokensForLP, 1e18, type(uint112).max);
+        tokenConfig.numTokensForLP = bound(tokenConfig.numTokensForLP, 1e9, type(uint112).max);
         ethForLp = bound(ethForLp, 1e9, type(uint112).max);
 
         tokenConfig.totalSupply =
-            tokenConfig.numTokensForDistribution +
-            tokenConfig.numTokensForRecipient +
-            tokenConfig.numTokensForLP;
+            tokenConfig.numTokensForDistribution + tokenConfig.numTokensForRecipient + tokenConfig.numTokensForLP;
         vm.assume(tokenConfig.totalSupply < type(uint112).max);
 
-        ERC20CreatorV3.FeeRecipient[]
-            memory recipients = new ERC20CreatorV3.FeeRecipient[](2);
-        recipients[0] = ERC20CreatorV3.FeeRecipient({
-            recipient: address(distributor),
-            percentageBps: 7_500
-        });
-        recipients[1] = ERC20CreatorV3.FeeRecipient({
-            recipient: address(this),
-            percentageBps: 2_500
-        });
+        ERC20CreatorV3.FeeRecipient[] memory recipients = new ERC20CreatorV3.FeeRecipient[](2);
+        recipients[0] = ERC20CreatorV3.FeeRecipient({recipient: address(distributor), percentageBps: 7_500});
+        recipients[1] = ERC20CreatorV3.FeeRecipient({recipient: address(this), percentageBps: 2_500});
 
-        ERC20CreatorV3.PositionData memory positionData = ERC20CreatorV3
-            .PositionData({
-                party: party,
-                lastCollectTimestamp: 0,
-                isFirstRecipientDistributor: true,
-                recipients: recipients
-            });
+        ERC20CreatorV3.PositionData memory positionData = ERC20CreatorV3.PositionData({
+            party: party,
+            lastCollectTimestamp: 0,
+            isFirstRecipientDistributor: true,
+            recipients: recipients
+        });
 
         vm.deal(address(party), ethForLp);
         vm.prank(address(party));
 
         uint256 beforeBalanceThis = address(this).balance;
 
-        IERC20 token = IERC20(creator.createToken{value: ethForLp}(
-            "My Test Token",
-            "MTT",
-            tokenConfig,
-            address(this),
-            address(1),
-            10_000,
-            positionData
-        ));
-
-        assertEq(
-            address(this).balance,
-            beforeBalanceThis + (ethForLp * 100) / 10_000
+        IERC20 token = IERC20(
+            creator.createToken{value: ethForLp}(
+                "My Test Token", "MTT", tokenConfig, address(this), address(1), 10_000, positionData
+            )
         );
+
+        address pool = creator.getPool(address(token), 10_000);
+
+        assertEq(address(this).balance, beforeBalanceThis + (ethForLp * 100) / 10_000);
         assertEq(token.balanceOf(address(this)), tokenConfig.numTokensForRecipient);
+        assertEq(token.balanceOf(pool), tokenConfig.numTokensForLP);
+        assertEq(token.balanceOf(address(distributor)), tokenConfig.numTokensForDistribution);
+        assertEq(IERC20(uniswap.WETH).balanceOf(pool), ethForLp - (ethForLp * 100) / 10_000);
     }
 
     receive() external payable {}

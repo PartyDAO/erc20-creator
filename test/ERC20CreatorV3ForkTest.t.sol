@@ -21,13 +21,10 @@ contract ERC20CreatorV3Test is Test {
     ERC20CreatorV3.PositionData public positionData;
 
     function setUp() public {
-        tokenDistributor = ITokenDistributor(
-            0xf0560F963538017CAA5081D96f839FE5D265acCB
-        );
+        tokenDistributor = ITokenDistributor(0xf0560F963538017CAA5081D96f839FE5D265acCB);
 
-        INonfungiblePositionManager positionManager = INonfungiblePositionManager(
-                0x1238536071E1c677A632429e3655c799b22cDA52
-            );
+        INonfungiblePositionManager positionManager =
+            INonfungiblePositionManager(0x1238536071E1c677A632429e3655c799b22cDA52);
         weth = positionManager.WETH9();
 
         feeRecipient = vm.addr(1);
@@ -52,10 +49,9 @@ contract ERC20CreatorV3Test is Test {
         forked_createToken_xPercentFee(10_000); // 1% fee
     }
 
-    // TODO: Test is failing
-    // function testForked_createToken_03PercentFee() external skip {
-    //     forked_createToken_xPercentFee(3_000); // 0.3% fee
-    // }
+    function testForked_createToken_03PercentFee() external {
+        forked_createToken_xPercentFee(3_000); // 0.3% fee
+    }
 
     function testForked_createToken_005PercentFee() external {
         forked_createToken_xPercentFee(500); // 0.05% fee
@@ -93,22 +89,11 @@ contract ERC20CreatorV3Test is Test {
         );
         address pool = creator.getPool(address(token), poolFee);
 
-        assertApproxEqRel(
-            token.balanceOf(pool),
-            numTokensForLP,
-            0.001 ether /* 0.1% tolerance */
-        );
-        assertApproxEqRel(
-            IERC20(weth).balanceOf(pool),
-            eth - fee,
-            0.001 ether /* 0.1% tolerance */
-        );
+        assertApproxEqRel(token.balanceOf(pool), numTokensForLP, 0.001 ether /* 0.1% tolerance */ );
+        assertApproxEqRel(IERC20(weth).balanceOf(pool), eth - fee, 0.001 ether /* 0.1% tolerance */ );
         assertEq(feeRecipient.balance, fee);
         assertEq(token.balanceOf(receiver), numTokensForRecipient);
-        assertEq(
-            token.balanceOf(address(tokenDistributor)),
-            numTokensForDistribution
-        );
+        assertEq(token.balanceOf(address(tokenDistributor)), numTokensForDistribution);
         assertEq(token.totalSupply(), totalSupply);
 
         Vm.Wallet memory wallet = vm.createWallet("Tester");
