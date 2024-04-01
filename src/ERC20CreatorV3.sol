@@ -36,6 +36,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
     error InvalidTokenDistribution();
     error OnlyFeeRecipient();
+    error InvalidPoolFee();
 
     /// @notice Delete once can be imported
     struct FeeRecipient {
@@ -111,6 +112,11 @@ contract ERC20CreatorV3 is IERC721Receiver {
                 || config.totalSupply > type(uint112).max
         ) {
             revert InvalidTokenDistribution();
+        }
+
+        // Only fees currently supported by uniswap
+        if(poolFee != 500 && poolFee != 3_000 && poolFee != 10_000) {
+            revert InvalidPoolFee();
         }
 
         // We use a changing salt to ensure address changes every block. If the LP position already exists, the TX will revert.

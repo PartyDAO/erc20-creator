@@ -16,6 +16,16 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
     ITokenDistributor internal distributor;
     Party internal party;
 
+    event ERC20Created(
+        address indexed token,
+        address indexed party,
+        address indexed recipient,
+        string name,
+        string symbol,
+        uint256 ethValue,
+        ERC20CreatorV3.TokenDistributionConfiguration config
+    );
+
     function setUp() external {
         uniswap = _deployUniswapV3();
         distributor = ITokenDistributor(address(new MockTokenDistributor()));
@@ -58,10 +68,13 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
         });
 
         vm.deal(address(party), ethForLp);
-        vm.prank(address(party));
 
         uint256 beforeBalanceThis = address(this).balance;
 
+        vm.expectEmit(false, true, true, true);
+        emit ERC20Created(address(0), address(party), address(this), "My Test Token", "MTT", ethForLp, tokenConfig);
+
+        vm.prank(address(party));
         IERC20 token = IERC20(
             creator.createToken{value: ethForLp}(
                 "My Test Token", "MTT", tokenConfig, address(this), address(1), 10_000, positionData
@@ -75,6 +88,16 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
         assertEq(token.balanceOf(pool), tokenConfig.numTokensForLP);
         assertEq(token.balanceOf(address(distributor)), tokenConfig.numTokensForDistribution);
         assertEq(IERC20(uniswap.WETH).balanceOf(pool), ethForLp - (ethForLp * 100) / 10_000);
+    }
+
+    function test_createToken_invalidPoolFeeReverts() external {
+        ERC20CreatorV3.TokenDistributionConfiguration memory tokenConfig;
+        ERC20CreatorV3.PositionData memory positionData;
+
+        vm.expectRevert(ERC20CreatorV3.InvalidPoolFee.selector);
+        creator.createToken(
+            "My Test Token", "MTT", tokenConfig, address(this), address(1), 10_001, positionData
+        );
     }
 
     receive() external payable {}
