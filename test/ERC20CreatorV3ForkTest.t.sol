@@ -18,7 +18,7 @@ contract ERC20CreatorV3Test is Test {
     Party public party;
     address public feeRecipient;
     uint16 public feeBasisPoints;
-    ERC20CreatorV3.PositionData public positionData;
+    PositionData public positionData;
 
     function setUp() public {
         tokenDistributor = ITokenDistributor(0xf0560F963538017CAA5081D96f839FE5D265acCB);
