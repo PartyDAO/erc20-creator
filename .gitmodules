@@ -19,3 +19,6 @@
 [submodule "lib/old-oz"]
 	path = lib/old-oz
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "lib/v3-periphery"]
+	path = lib/v3-periphery
+	url = https://github.com/ChrisiPK/v3-periphery
