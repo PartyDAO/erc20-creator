@@ -21,7 +21,13 @@ contract ERC20CreatorV3 is IERC721Receiver {
     }
 
     event ERC20Created(
-        address indexed token, address indexed party, address recipient, TokenDistributionConfiguration config
+        address indexed token,
+        address indexed party,
+        address indexed recipient,
+        string name,
+        string symbol,
+        uint256 ethValue,
+        TokenDistributionConfiguration config
     );
 
     event FeeRecipientUpdated(address indexed oldFeeRecipient, address indexed newFeeRecipient);
@@ -37,6 +43,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
         uint16 percentageBps;
     }
     /// @notice Delete once can be imported
+
     struct PositionData {
         Party party;
         uint40 lastCollectTimestamp;
@@ -90,9 +97,9 @@ contract ERC20CreatorV3 is IERC721Receiver {
     /// @param poolFee Pool swap fee in hundredths of a basis point. This MUST be 500, 3_000, or 10_000
     /// @return token The address of the newly created token
     function createToken(
-        string calldata name,
-        string calldata symbol,
-        TokenDistributionConfiguration calldata config,
+        string memory name,
+        string memory symbol,
+        TokenDistributionConfiguration memory config,
         address tokenRecipientAddress,
         address feeCollectorAddress,
         uint16 poolFee,
@@ -125,14 +132,13 @@ contract ERC20CreatorV3 is IERC721Receiver {
         // Take fee
         uint256 feeAmount = (msg.value * feeBasisPoints) / 1e4;
 
-        uint256 numETHForLP = msg.value - feeAmount;
-
         {
             // Create and initialize pool. Reverts if pool already created.
             address pool = UNISWAP_V3_FACTORY.createPool(address(token), WETH, poolFee);
 
             // Initialize pool for the derived starting price
-            uint160 sqrtPriceX96 = uint160((((numETHForLP * 1e18) / config.numTokensForLP).sqrt() * _X96) / 1e9);
+            uint160 sqrtPriceX96 =
+                uint160(((((msg.value - feeAmount) * 1e18) / config.numTokensForLP).sqrt() * _X96) / 1e9);
             IUniswapV3Pool(pool).initialize(sqrtPriceX96);
         }
 
@@ -153,7 +159,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
                         tickLower: int24(poolFee == 3_000 ? -887220 : -887200),
                         tickUpper: int24(poolFee == 3_000 ? 887220 : 887200),
                         amount0Desired: config.numTokensForLP,
-                        amount1Desired: numETHForLP,
+                        amount1Desired: msg.value - feeAmount,
                         amount0Min: 0,
                         amount1Min: 0,
                         recipient: address(this),
@@ -163,7 +169,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
             );
             calls[1] = abi.encodePacked(UNISWAP_V3_POSITION_MANAGER.refundETH.selector);
             bytes memory mintReturnData =
-                IMulticall(address(UNISWAP_V3_POSITION_MANAGER)).multicall{value: numETHForLP}(calls)[0];
+                IMulticall(address(UNISWAP_V3_POSITION_MANAGER)).multicall{value: msg.value - feeAmount}(calls)[0];
 
             lpTokenId = abi.decode(mintReturnData, (uint256));
         }
@@ -188,7 +194,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
             address(this), feeCollectorAddress, lpTokenId, abi.encode(positionData)
         );
 
-        emit ERC20Created(address(token), msg.sender, tokenRecipientAddress, config);
+        emit ERC20Created(address(token), msg.sender, tokenRecipientAddress, name, symbol, msg.value, config);
 
         return address(token);
     }
