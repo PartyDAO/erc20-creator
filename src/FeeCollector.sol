@@ -32,7 +32,6 @@ contract FeeCollector is IERC721Receiver {
     address payable public immutable PARTY_DAO;
     IWETH public immutable WETH;
 
-    ITokenDistributor public tokenDistributor;
     uint16 public partyDaoFeeBps;
     uint256 public collectCooldown = 7 days;
 
