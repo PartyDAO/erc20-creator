@@ -43,8 +43,8 @@ contract ERC20CreatorV3Test is Test {
 
         feeCollector = new FeeCollector(
             positionManager,
-            tokenDistributor,
             payable(address(0)),
+            100,
             IWETH(address(weth))
         );
 

@@ -57,21 +57,24 @@ contract FeeCollectorForkedTest is Test {
             distributor,
             positionManager,
             IUniswapV3Factory(0x0227628f3F023bb0B980b67D528571c95c6DaC1c),
+            address(feeCollector),
             address(weth),
             address(this),
-            100 // 1%
+            100, // 1%
+            10_000
         );
     }
 
-    function _setUpTokenAndPool(
-        PositionData memory positionParams
-    ) internal returns (IERC20 token, uint256 tokenId) {
+    function _setUpTokenAndPool()
+        internal
+        returns (IERC20 token, uint256 tokenId)
+    {
         ERC20CreatorV3.TokenDistributionConfiguration
             memory tokenConfig = ERC20CreatorV3.TokenDistributionConfiguration({
                 totalSupply: 100 ether,
-                numTokensForDistribution: 10 ether,
-                numTokensForRecipient: 10 ether,
-                numTokensForLP: 80 ether
+                numTokensForDistribution: 0,
+                numTokensForRecipient: 0,
+                numTokensForLP: 100 ether
             });
 
         vm.deal(address(party), 10e18);
@@ -83,10 +86,7 @@ contract FeeCollectorForkedTest is Test {
                 "My Test Token",
                 "MTT",
                 tokenConfig,
-                address(this),
-                address(feeCollector),
-                10_000,
-                positionParams
+                address(0)
             )
         );
         Vm.Log[] memory logs = vm.getRecordedLogs();
@@ -105,22 +105,7 @@ contract FeeCollectorForkedTest is Test {
     }
 
     function testForkedCollectAndDistributeFees() public {
-        FeeRecipient[] memory recipients = new FeeRecipient[](2);
-        recipients[0] = FeeRecipient(
-            payable(vm.createWallet("Recipient1").addr),
-            0.5e4 // 50%
-        );
-        recipients[1] = FeeRecipient(
-            payable(vm.createWallet("Recipient2").addr),
-            0.5e4 // 50%
-        );
-
-        PositionData memory positionParams = PositionData({
-            party: party,
-            recipients: recipients
-        });
-
-        (IERC20 token, uint256 tokenId) = _setUpTokenAndPool(positionParams);
+        (IERC20 token, uint256 tokenId) = _setUpTokenAndPool();
 
         Party storedParty = feeCollector.getPositionData(tokenId);
         FeeRecipient[] memory storedRecipients = feeCollector.getFeeRecipients(
@@ -128,13 +113,8 @@ contract FeeCollectorForkedTest is Test {
         );
 
         assertEq(address(storedParty), address(party));
-        for (uint256 i = 0; i < recipients.length; i++) {
-            assertEq(storedRecipients[i].recipient, recipients[i].recipient);
-            assertEq(
-                storedRecipients[i].percentageBps,
-                recipients[i].percentageBps
-            );
-        }
+        assertEq(storedRecipients[0].recipient, address(party));
+        assertEq(storedRecipients[0].percentageBps, 10_000);
 
         // Perform swaps to generate fees
         deal(address(weth), address(this), type(uint128).max);
@@ -163,6 +143,8 @@ contract FeeCollectorForkedTest is Test {
             })
         );
 
+        uint256 partyBalanceBefore = address(party).balance;
+
         // Collect and distribute fees
         (uint256 ethAmount, uint256 tokenAmount) = feeCollector
             .collectAndDistributeFees(tokenId);
@@ -179,12 +161,10 @@ contract FeeCollectorForkedTest is Test {
             expectedPartyDaoFee
         );
 
-        // Check distribution to recipients
-        for (uint256 i = 0; i < recipients.length; i++) {
-            assertEq(
-                address(recipients[i].recipient).balance,
-                (expectedRemainingEth * recipients[i].percentageBps) / 1e4
-            );
-        }
+        // Check distribution to recipient
+        assertEq(
+            address(party).balance - partyBalanceBefore,
+            expectedRemainingEth
+        );
     }
 }
