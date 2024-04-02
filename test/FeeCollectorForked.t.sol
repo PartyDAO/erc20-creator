@@ -11,10 +11,25 @@ import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungibleP
 import {ITokenDistributor} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {IUniswapV3Factory} from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import {IUniswapV3Pool} from "v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import {ISwapRouter} from "v3-periphery/interfaces/ISwapRouter.sol";
 import {Party} from "party-protocol/contracts/party/Party.sol";
 
 // MUST run with --fork $SEPOLIA_RPC_URL --evm-version shanghai
+
+interface ISwapRouter {
+    struct ExactInputSingleParams {
+        address tokenIn;
+        address tokenOut;
+        uint24 fee;
+        address recipient;
+        uint256 amountIn;
+        uint256 amountOutMinimum;
+        uint160 sqrtPriceLimitX96;
+    }
+
+    function exactInputSingle(
+        ExactInputSingleParams calldata params
+    ) external payable returns (uint256 amountOut);
+}
 
 contract FeeCollectorForkedTest is Test {
     ERC20CreatorV3 internal creator;
@@ -37,7 +52,7 @@ contract FeeCollectorForkedTest is Test {
         party = Party(payable(address(new MockParty())));
         partyDao = payable(vm.createWallet("PartyDAO").addr);
         feeCollector = new FeeCollector(positionManager, partyDao, 100, weth);
-        swapRouter = ISwapRouter(0x1CF7C7BaE363f46ec16C4F4B095800D5bD0CB382);
+        swapRouter = ISwapRouter(0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E);
         creator = new ERC20CreatorV3(
             distributor,
             positionManager,
@@ -121,16 +136,28 @@ contract FeeCollectorForkedTest is Test {
             );
         }
 
+        // Perform swaps to generate fees
         deal(address(weth), address(this), type(uint128).max);
         IERC20(address(weth)).approve(address(swapRouter), type(uint128).max);
-        swapRouter.exactInputSingle(
+        uint256 amountOut = swapRouter.exactInputSingle(
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: address(weth),
                 tokenOut: address(token),
                 fee: 10_000,
                 recipient: address(this),
-                deadline: block.timestamp + 1,
                 amountIn: 1e18,
+                amountOutMinimum: 0,
+                sqrtPriceLimitX96: 0
+            })
+        );
+        token.approve(address(swapRouter), type(uint128).max);
+        swapRouter.exactInputSingle(
+            ISwapRouter.ExactInputSingleParams({
+                tokenIn: address(token),
+                tokenOut: address(weth),
+                fee: 10_000,
+                recipient: address(this),
+                amountIn: amountOut,
                 amountOutMinimum: 0,
                 sqrtPriceLimitX96: 0
             })
@@ -139,5 +166,25 @@ contract FeeCollectorForkedTest is Test {
         // Collect and distribute fees
         (uint256 ethAmount, uint256 tokenAmount) = feeCollector
             .collectAndDistributeFees(tokenId);
+
+        assertGt(ethAmount, 0);
+        assertGt(tokenAmount, 0);
+
+        // Check PartyDAO fee deduction
+        uint256 expectedPartyDaoFee = (ethAmount *
+            feeCollector.partyDaoFeeBps()) / 1e4;
+        uint256 expectedRemainingEth = ethAmount - expectedPartyDaoFee;
+        assertEq(
+            address(feeCollector.PARTY_DAO()).balance,
+            expectedPartyDaoFee
+        );
+
+        // Check distribution to recipients
+        for (uint256 i = 0; i < recipients.length; i++) {
+            assertEq(
+                address(recipients[i].recipient).balance,
+                (expectedRemainingEth * recipients[i].percentageBps) / 1e4
+            );
+        }
     }
 }
