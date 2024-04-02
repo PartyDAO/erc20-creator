@@ -7,9 +7,9 @@ import {MockTokenDistributor} from "./mock/MockTokenDistributor.t.sol";
 import {MockParty} from "./mock/MockParty.t.sol";
 import {ERC20CreatorV3, IERC20} from "src/ERC20CreatorV3.sol";
 import {FeeCollector, FeeRecipient, PositionData, IWETH} from "../src/FeeCollector.sol";
-import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INonfungiblePositionManager.sol";
+import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import {ITokenDistributor} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
-import {IUniswapV3Factory} from "@uniswap/v3-core/interfaces/IUniswapV3Factory.sol";
+import {IUniswapV3Factory} from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import {Party} from "party-protocol/contracts/party/Party.sol";
 
 contract FeeCollectorTest is Test, MockUniswapV3Deployer {
@@ -58,6 +58,7 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         vm.prank(address(party));
         token = IERC20(
             creator.createToken{value: 10e18}(
+                address(party),
                 "My Test Token",
                 "MTT",
                 tokenConfig,

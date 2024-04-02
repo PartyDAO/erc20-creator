@@ -3,7 +3,7 @@ pragma solidity ^0.8;
 
 import {IERC721Receiver} from "openzeppelin-contracts/contracts/interfaces/IERC721Receiver.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INonfungiblePositionManager.sol";
+import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import {IWETH} from "../lib/v2-periphery/contracts/interfaces/IWETH.sol";
 import {Party} from "party-protocol/contracts/party/Party.sol";
 import {ITokenDistributor, IERC20} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
