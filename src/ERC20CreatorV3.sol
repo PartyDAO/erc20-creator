@@ -63,30 +63,30 @@ contract ERC20CreatorV3 is IERC721Receiver {
     /// @notice Fee basis points for ETH split on LP creation
     uint16 public feeBasisPoints;
 
-    /// @param _tokenDistributor PartyDao token distributor contract
-    /// @param _uniswapV3PositionManager Uniswap V3 position manager contract
-    /// @param _uniswapV3Factory Uniswap V3 factory contract
+    /// @param tokenDistributor PartyDao token distributor contract
+    /// @param uniswapV3PositionManager Uniswap V3 position manager contract
+    /// @param uniswapV3Factory Uniswap V3 factory contract
     /// @param feeCollector Fee collector address which v3 lp positions are transferred to.
-    /// @param _weth WETH address
-    /// @param _feeRecipient Address that receives fee split of ETH at LP creation
-    /// @param _feeBasisPoints Fee basis points for ETH split on LP creation
+    /// @param weth WETH address
+    /// @param feeRecipient_ Address that receives fee split of ETH at LP creation
+    /// @param feeBasisPoints_ Fee basis points for ETH split on LP creation
     /// @param poolFee Uniswap V3 pool fee in hundredths of a bip
     constructor(
-        ITokenDistributor _tokenDistributor,
-        INonfungiblePositionManager _uniswapV3PositionManager,
-        IUniswapV3Factory _uniswapV3Factory,
+        ITokenDistributor tokenDistributor,
+        INonfungiblePositionManager uniswapV3PositionManager,
+        IUniswapV3Factory uniswapV3Factory,
         address feeCollector,
-        address _weth,
-        address _feeRecipient,
-        uint16 _feeBasisPoints,
+        address weth,
+        address feeRecipient_,
+        uint16 feeBasisPoints_,
         uint16 poolFee
     ) {
-        TOKEN_DISTRIBUTOR = _tokenDistributor;
-        UNISWAP_V3_POSITION_MANAGER = _uniswapV3PositionManager;
-        UNISWAP_V3_FACTORY = _uniswapV3Factory;
-        WETH = _weth;
-        feeRecipient = _feeRecipient;
-        feeBasisPoints = _feeBasisPoints;
+        TOKEN_DISTRIBUTOR = tokenDistributor;
+        UNISWAP_V3_POSITION_MANAGER = uniswapV3PositionManager;
+        UNISWAP_V3_FACTORY = uniswapV3Factory;
+        WETH = weth;
+        feeRecipient = feeRecipient_;
+        feeBasisPoints = feeBasisPoints_;
         POOL_FEE = poolFee;
         FEE_COLLECTOR = feeCollector;
 
