@@ -13,16 +13,8 @@ struct FeeRecipient {
     uint16 percentageBps;
 }
 
-struct PositionParams {
-    Party party;
-    bool isFirstRecipientDistributor;
-    FeeRecipient[] recipients;
-}
-
 struct PositionData {
     Party party;
-    uint40 lastCollectTimestamp;
-    bool isFirstRecipientDistributor;
     FeeRecipient[] recipients;
 }
 
@@ -33,7 +25,6 @@ contract FeeCollector is IERC721Receiver {
     IWETH public immutable WETH;
 
     uint16 public partyDaoFeeBps;
-    uint256 public collectCooldown = 7 days;
 
     mapping(uint256 tokenId => PositionData) public getPositionData;
 
@@ -69,9 +60,6 @@ contract FeeCollector is IERC721Receiver {
         uint256 tokenId
     ) external returns (uint256 ethAmount, uint256 tokenAmount) {
         PositionData storage data = getPositionData[tokenId];
-        if (block.timestamp < data.lastCollectTimestamp + collectCooldown)
-            revert CooldownNotOver();
-        data.lastCollectTimestamp = uint40(block.timestamp);
 
         // Collect fees from the LP position
         INonfungiblePositionManager.CollectParams
@@ -116,20 +104,11 @@ contract FeeCollector is IERC721Receiver {
             uint256 recipientTokenFee = (tokenAmount *
                 recipient.percentageBps) / 1e4;
 
-            if (data.isFirstRecipientDistributor && i == 0) {
-                TOKEN_DISTRIBUTOR.createNativeDistribution{
-                    value: recipientEthFee
-                }(data.party, payable(address(0)), 0);
-
-                token.transfer(address(TOKEN_DISTRIBUTOR), recipientTokenFee);
-                TOKEN_DISTRIBUTOR.createErc20Distribution(
-                    IERC20(address(token)),
-                    data.party,
-                    payable(address(0)),
-                    0
-                );
-            } else {
+            if (recipientTokenFee > 0) {
                 token.transfer(recipient.recipient, recipientTokenFee);
+            }
+
+            if (recipientEthFee > 0) {
                 payable(recipient.recipient).call{
                     value: recipientEthFee,
                     gas: 100_000
@@ -152,12 +131,6 @@ contract FeeCollector is IERC721Receiver {
         partyDaoFeeBps = _partyDaoFeeBps;
     }
 
-    function setCollectCooldown(uint256 _collectCooldown) external {
-        if (msg.sender != PARTY_DAO) revert OnlyPartyDAO();
-        emit CollectCooldownUpdated(collectCooldown, _collectCooldown);
-        collectCooldown = _collectCooldown;
-    }
-
     function getFeeRecipients(
         uint256 tokenId
     ) external view returns (FeeRecipient[] memory) {
@@ -173,12 +146,9 @@ contract FeeCollector is IERC721Receiver {
         if (msg.sender != address(POSITION_MANAGER))
             revert OnlyV3PositionManager();
 
-        PositionParams memory params = abi.decode(data, (PositionParams));
-
+        PositionData memory params = abi.decode(data, (PositionData));
         PositionData storage position = getPositionData[tokenId];
         position.party = params.party;
-        position.isFirstRecipientDistributor = params
-            .isFirstRecipientDistributor;
 
         uint256 totalPercentageBps;
         for (uint256 i = 0; i < params.recipients.length; i++) {

@@ -9,7 +9,7 @@ import {IUniswapV3Pool} from "@uniswap/v3-core/interfaces/IUniswapV3Pool.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import {ITokenDistributor, IERC20, Party} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {GovernableERC20} from "./GovernableERC20.sol";
-import {PositionParams, FeeRecipient} from "./FeeCollector.sol";
+import {PositionData, FeeRecipient} from "./FeeCollector.sol";
 
 contract ERC20CreatorV3 is IERC721Receiver {
     using MathLib for uint256;
@@ -97,7 +97,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
         address tokenRecipientAddress,
         address feeCollectorAddress,
         uint16 poolFee,
-        PositionParams calldata positionParams
+        PositionData calldata positionParams
     ) external payable returns (address) {
         // Require that tokens are fully distributed
         if (

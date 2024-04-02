@@ -6,7 +6,7 @@ import {MockUniswapV3Deployer, MockUniswapNonfungiblePositionManager} from "./mo
 import {MockTokenDistributor} from "./mock/MockTokenDistributor.t.sol";
 import {MockParty} from "./mock/MockParty.t.sol";
 import {ERC20CreatorV3, IERC20} from "src/ERC20CreatorV3.sol";
-import {FeeCollector, FeeRecipient, PositionParams, IWETH} from "../src/FeeCollector.sol";
+import {FeeCollector, FeeRecipient, PositionData, IWETH} from "../src/FeeCollector.sol";
 import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import {ITokenDistributor} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {IUniswapV3Factory} from "@uniswap/v3-core/interfaces/IUniswapV3Factory.sol";
@@ -44,7 +44,7 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
     }
 
     function _setUpTokenAndPool(
-        PositionParams memory positionParams
+        PositionData memory positionParams
     ) internal returns (IERC20 token, uint256 tokenId) {
         ERC20CreatorV3.TokenDistributionConfiguration
             memory tokenConfig = ERC20CreatorV3.TokenDistributionConfiguration({
@@ -83,28 +83,19 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
             0.5e4 // 50%
         );
 
-        PositionParams memory positionParams = PositionParams({
+        PositionData memory positionParams = PositionData({
             party: party,
-            isFirstRecipientDistributor: false,
             recipients: recipients
         });
 
         (IERC20 token, uint256 tokenId) = _setUpTokenAndPool(positionParams);
 
-        (
-            Party storedParty,
-            ,
-            bool storedIsFirstRecipientDistributor
-        ) = feeCollector.getPositionData(tokenId);
+        Party storedParty = feeCollector.getPositionData(tokenId);
         FeeRecipient[] memory storedRecipients = feeCollector.getFeeRecipients(
             tokenId
         );
 
         assertEq(address(storedParty), address(party));
-        assertEq(
-            storedIsFirstRecipientDistributor,
-            positionParams.isFirstRecipientDistributor
-        );
         for (uint256 i = 0; i < recipients.length; i++) {
             assertEq(storedRecipients[i].recipient, recipients[i].recipient);
             assertEq(
@@ -140,21 +131,6 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
                 (tokenAmount * recipients[i].percentageBps) / 1e4
             );
         }
-    }
-
-    function testSetCollectCooldown() public {
-        uint256 newCooldown = 10 days;
-        vm.prank(address(feeCollector.PARTY_DAO()));
-        feeCollector.setCollectCooldown(newCooldown);
-        assertEq(feeCollector.collectCooldown(), newCooldown);
-    }
-
-    function testSetCollectCooldownRevertNotPartyDAO() public {
-        uint256 newCooldown = 10 days;
-        vm.expectRevert(
-            abi.encodeWithSelector(FeeCollector.OnlyPartyDAO.selector)
-        );
-        feeCollector.setCollectCooldown(newCooldown);
     }
 
     function testSetPartyDaoFeeBps() public {
