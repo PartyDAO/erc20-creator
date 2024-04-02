@@ -8,6 +8,8 @@ import {ERC20Votes} from "openzeppelin-contracts/contracts/token/ERC20/extension
 import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import {IUniswapV3Factory} from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
 import {MockParty} from "./mock/MockParty.t.sol";
+import {FeeCollector} from "src/FeeCollector.sol";
+import {IWETH} from "v2-periphery/interfaces/IWETH.sol";
 
 contract ERC20CreatorV3Test is Test {
     ERC20CreatorV3 public creator;
@@ -19,6 +21,7 @@ contract ERC20CreatorV3Test is Test {
     address public feeRecipient;
     uint16 public feeBasisPoints;
     PositionData public positionParams;
+    FeeCollector public feeCollector;
 
     function setUp() public {
         tokenDistributor = ITokenDistributor(
@@ -38,13 +41,22 @@ contract ERC20CreatorV3Test is Test {
         party = Party(payable(address(new MockParty())));
         vm.label(address(party), "Party");
 
+        feeCollector = new FeeCollector(
+            positionManager,
+            tokenDistributor,
+            payable(address(0)),
+            IWETH(address(weth))
+        );
+
         creator = new ERC20CreatorV3(
             tokenDistributor,
             positionManager,
             IUniswapV3Factory(0x0227628f3F023bb0B980b67D528571c95c6DaC1c),
+            address(feeCollector),
             positionManager.WETH9(),
             feeRecipient,
-            feeBasisPoints
+            feeBasisPoints,
+            10_000
         );
     }
 
@@ -84,14 +96,11 @@ contract ERC20CreatorV3Test is Test {
                         numTokensForRecipient: numTokensForRecipient,
                         numTokensForLP: numTokensForLP
                     }),
-                    receiver,
-                    address(1),
-                    poolFee,
-                    positionParams
+                    receiver
                 )
             )
         );
-        address pool = creator.getPool(address(token), poolFee);
+        address pool = creator.getPool(address(token));
 
         assertApproxEqRel(
             token.balanceOf(pool),

@@ -1,9 +1,0 @@
-{
-  "dependencies": {
-    "@uniswap/v3-core": "https://github.com/Uniswap/v3-core.git",
-    "@uniswap/v3-periphery": "git+https://github.com/ChrisiPK/v3-periphery.git#a82c50ebea0705e8e3a05309576329af9fee61ad"
-  },
-  "resolutions": {
-    "@openzeppelin/contracts": "git+https://github.com/OpenZeppelin/openzeppelin-contracts.git#c3178ff942f9f487b9fda2c648aa19e633560adb"
-  }
-}
