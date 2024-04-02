@@ -59,46 +59,58 @@ contract FeeCollector is IERC721Receiver {
     function collectAndDistributeFees(
         uint256 tokenId
     ) external returns (uint256 ethAmount, uint256 tokenAmount) {
-        PositionData storage data = getPositionData[tokenId];
-
         // Collect fees from the LP position
-        INonfungiblePositionManager.CollectParams
-            memory params = INonfungiblePositionManager.CollectParams({
-                tokenId: tokenId,
-                recipient: address(this),
-                amount0Max: type(uint128).max,
-                amount1Max: type(uint128).max
-            });
-
-        (uint256 amount0, uint256 amount1) = POSITION_MANAGER.collect(params);
-
-        (, , address token0, address token1, , , , , , , , ) = POSITION_MANAGER
-            .positions(tokenId);
-
         ERC20 token;
-        if (token0 == address(WETH)) {
-            token = ERC20(token1);
-            ethAmount = amount0;
-            tokenAmount = amount1;
-        } else if (token1 == address(WETH)) {
-            token = ERC20(token0);
-            ethAmount = amount1;
-            tokenAmount = amount0;
-        } else {
-            revert InvalidLPPosition();
-        }
+        {
+            INonfungiblePositionManager.CollectParams
+                memory params = INonfungiblePositionManager.CollectParams({
+                    tokenId: tokenId,
+                    recipient: address(this),
+                    amount0Max: type(uint128).max,
+                    amount1Max: type(uint128).max
+                });
 
-        // Convert WETH to ETH
-        WETH.withdraw(ethAmount);
+            (uint256 amount0, uint256 amount1) = POSITION_MANAGER.collect(
+                params
+            );
+
+            (, bytes memory res) = address(POSITION_MANAGER).staticcall(
+                abi.encodeWithSelector(
+                    POSITION_MANAGER.positions.selector,
+                    tokenId
+                )
+            );
+            (, , address token0, address token1) = abi.decode(
+                res,
+                (uint96, address, address, address)
+            );
+
+            if (token0 == address(WETH)) {
+                token = ERC20(token1);
+                ethAmount = amount0;
+                tokenAmount = amount1;
+            } else if (token1 == address(WETH)) {
+                token = ERC20(token0);
+                ethAmount = amount1;
+                tokenAmount = amount0;
+            } else {
+                revert InvalidLPPosition();
+            }
+
+            // Convert WETH to ETH
+            WETH.withdraw(ethAmount);
+        }
 
         // Take PartyDAO fee on ETH from the LP position
         uint256 partyDaoFee = (ethAmount * partyDaoFeeBps) / 1e4;
         PARTY_DAO.call{value: partyDaoFee, gas: 100_000}("");
 
+        FeeRecipient[] memory recipients = getPositionData[tokenId].recipients;
+
         // Distribute the ETH and tokens to recipients
         uint256 remainingEthFees = ethAmount - partyDaoFee;
-        for (uint256 i = 0; i < data.recipients.length; i++) {
-            FeeRecipient memory recipient = data.recipients[i];
+        for (uint256 i = 0; i < recipients.length; i++) {
+            FeeRecipient memory recipient = recipients[i];
             uint256 recipientEthFee = (remainingEthFees *
                 recipient.percentageBps) / 1e4;
             uint256 recipientTokenFee = (tokenAmount *
@@ -121,7 +133,7 @@ contract FeeCollector is IERC721Receiver {
             ethAmount,
             tokenAmount,
             partyDaoFee,
-            data.recipients
+            recipients
         );
     }
 
