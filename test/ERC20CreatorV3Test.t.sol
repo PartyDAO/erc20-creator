@@ -38,8 +38,8 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
 
         feeCollector = new FeeCollector(
             INonfungiblePositionManager(uniswap.POSITION_MANAGER),
-            distributor,
             payable(this),
+            100,
             IWETH(uniswap.WETH)
         );
 
