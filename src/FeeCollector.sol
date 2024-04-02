@@ -37,6 +37,22 @@ contract FeeCollector is IERC721Receiver {
 
     mapping(uint256 tokenId => PositionData) public getPositionData;
 
+    error CooldownNotOver();
+    error InvalidLPPosition();
+    error OnlyPartyDAO();
+    error OnlyV3PositionManager();
+    error InvalidPercentageBps();
+
+    event FeesCollectedAndDistributed(
+        uint256 tokenId,
+        uint256 ethAmount,
+        uint256 tokenAmount,
+        uint256 partyDaoFee,
+        FeeRecipient[] recipients
+    );
+    event PartyDaoFeeBpsUpdated(uint16 oldFeeBps, uint16 newFeeBps);
+    event CollectCooldownUpdated(uint256 oldCooldown, uint256 newCooldown);
+
     constructor(
         INonfungiblePositionManager _positionManager,
         ITokenDistributor _tokenDistributor,
@@ -53,10 +69,8 @@ contract FeeCollector is IERC721Receiver {
         uint256 tokenId
     ) external returns (uint256 ethAmount, uint256 tokenAmount) {
         PositionData storage data = getPositionData[tokenId];
-        require(
-            block.timestamp >= data.lastCollectTimestamp + collectCooldown,
-            "Cooldown not over"
-        );
+        if (block.timestamp < data.lastCollectTimestamp + collectCooldown)
+            revert CooldownNotOver();
         data.lastCollectTimestamp = uint40(block.timestamp);
 
         // Collect fees from the LP position
@@ -83,7 +97,7 @@ contract FeeCollector is IERC721Receiver {
             ethAmount = amount1;
             tokenAmount = amount0;
         } else {
-            revert("Invalid LP position");
+            revert InvalidLPPosition();
         }
 
         // Convert WETH to ETH
@@ -122,15 +136,25 @@ contract FeeCollector is IERC721Receiver {
                 }("");
             }
         }
+
+        emit FeesCollectedAndDistributed(
+            tokenId,
+            ethAmount,
+            tokenAmount,
+            partyDaoFee,
+            data.recipients
+        );
     }
 
     function setPartyDaoFeeBps(uint16 _partyDaoFeeBps) external {
-        require(msg.sender == PARTY_DAO, "Only PartyDAO can set fee");
+        if (msg.sender != PARTY_DAO) revert OnlyPartyDAO();
+        emit PartyDaoFeeBpsUpdated(partyDaoFeeBps, _partyDaoFeeBps);
         partyDaoFeeBps = _partyDaoFeeBps;
     }
 
     function setCollectCooldown(uint256 _collectCooldown) external {
-        require(msg.sender == PARTY_DAO, "Only PartyDAO can set cooldown");
+        if (msg.sender != PARTY_DAO) revert OnlyPartyDAO();
+        emit CollectCooldownUpdated(collectCooldown, _collectCooldown);
         collectCooldown = _collectCooldown;
     }
 
@@ -146,7 +170,9 @@ contract FeeCollector is IERC721Receiver {
         uint256 tokenId,
         bytes calldata data
     ) external returns (bytes4) {
-        require(msg.sender == address(POSITION_MANAGER), "Only V3 LP");
+        if (msg.sender != address(POSITION_MANAGER))
+            revert OnlyV3PositionManager();
+
         PositionParams memory params = abi.decode(data, (PositionParams));
 
         PositionData storage position = getPositionData[tokenId];
@@ -160,7 +186,7 @@ contract FeeCollector is IERC721Receiver {
             totalPercentageBps += params.recipients[i].percentageBps;
         }
 
-        require(totalPercentageBps == 1e4, "Total percentageBps must be 100%");
+        if (totalPercentageBps != 1e4) revert InvalidPercentageBps();
 
         return this.onERC721Received.selector;
     }

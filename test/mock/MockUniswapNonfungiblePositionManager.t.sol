@@ -7,8 +7,9 @@ import {MockUniswapV3Factory} from "./MockUniswapV3Factory.t.sol";
 import {IMulticall} from "@uniswap/v3-periphery/interfaces/IMulticall.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {WETH9} from "./WETH.t.sol";
+import "forge-std/Test.sol";
 
-contract MockUniswapNonfungiblePositionManager is ERC721, IMulticall {
+contract MockUniswapNonfungiblePositionManager is ERC721, IMulticall, Test {
     WETH9 public immutable WETH;
     MockUniswapV3Factory public immutable FACTORY;
 
@@ -90,16 +91,18 @@ contract MockUniswapNonfungiblePositionManager is ERC721, IMulticall {
         IERC20 token1 = IERC20(address(WETH));
 
         if (params.amount0Max == type(uint128).max) {
-            // Collect 1% of balance
-            amount0 = uint128((token0.balanceOf(address(this)) * 100) / 1e4);
+            amount0 = 1000e18;
+        } else {
+            amount0 = params.amount0Max;
         }
         if (params.amount1Max == type(uint128).max) {
-            // Collect 1% of balance
-            amount1 = uint128((WETH.balanceOf(address(this)) * 100) / 1e4);
+            amount1 = 1e18;
+        } else {
+            amount1 = params.amount1Max;
         }
 
-        token0.transfer(params.recipient, amount0);
-        token1.transfer(params.recipient, amount1);
+        deal(address(token0), params.recipient, amount0);
+        deal(address(token1), params.recipient, amount1);
     }
 
     function positions(

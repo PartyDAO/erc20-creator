@@ -74,12 +74,18 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
 
     function testCollectAndDistributeFees() public {
         FeeRecipient[] memory recipients = new FeeRecipient[](2);
-        recipients[0] = FeeRecipient(vm.addr(1), 0.5e4); // 50%
-        recipients[1] = FeeRecipient(vm.addr(2), 0.5e4); // 50%
+        recipients[0] = FeeRecipient(
+            payable(vm.createWallet("Recipient1").addr),
+            0.5e4 // 50%
+        );
+        recipients[1] = FeeRecipient(
+            payable(vm.createWallet("Recipient2").addr),
+            0.5e4 // 50%
+        );
 
         PositionParams memory positionParams = PositionParams({
             party: party,
-            isFirstRecipientDistributor: true,
+            isFirstRecipientDistributor: false,
             recipients: recipients
         });
 
@@ -87,7 +93,7 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
 
         (
             Party storedParty,
-            uint40 storedLastCollectTimestamp,
+            ,
             bool storedIsFirstRecipientDistributor
         ) = feeCollector.getPositionData(tokenId);
         FeeRecipient[] memory storedRecipients = feeCollector.getFeeRecipients(
@@ -111,6 +117,58 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         (uint256 ethAmount, uint256 tokenAmount) = feeCollector
             .collectAndDistributeFees(tokenId);
 
-        // TODO: Write assertions
+        assertEq(ethAmount, 1e18);
+        assertEq(tokenAmount, 1000e18);
+
+        // Check PartyDAO fee deduction
+        uint256 expectedPartyDaoFee = (ethAmount *
+            feeCollector.partyDaoFeeBps()) / 1e4;
+        uint256 expectedRemainingEth = ethAmount - expectedPartyDaoFee;
+        assertEq(
+            address(feeCollector.PARTY_DAO()).balance,
+            expectedPartyDaoFee
+        );
+
+        // Check distribution to recipients
+        for (uint256 i = 0; i < recipients.length; i++) {
+            assertEq(
+                address(recipients[i].recipient).balance,
+                (expectedRemainingEth * recipients[i].percentageBps) / 1e4
+            );
+            assertEq(
+                token.balanceOf(recipients[i].recipient),
+                (tokenAmount * recipients[i].percentageBps) / 1e4
+            );
+        }
+    }
+
+    function testSetCollectCooldown() public {
+        uint256 newCooldown = 10 days;
+        vm.prank(address(feeCollector.PARTY_DAO()));
+        feeCollector.setCollectCooldown(newCooldown);
+        assertEq(feeCollector.collectCooldown(), newCooldown);
+    }
+
+    function testSetCollectCooldownRevertNotPartyDAO() public {
+        uint256 newCooldown = 10 days;
+        vm.expectRevert(
+            abi.encodeWithSelector(FeeCollector.OnlyPartyDAO.selector)
+        );
+        feeCollector.setCollectCooldown(newCooldown);
+    }
+
+    function testSetPartyDaoFeeBps() public {
+        uint16 newFeeBps = 500; // 5%
+        vm.prank(address(feeCollector.PARTY_DAO()));
+        feeCollector.setPartyDaoFeeBps(newFeeBps);
+        assertEq(feeCollector.partyDaoFeeBps(), newFeeBps);
+    }
+
+    function testSetPartyDaoFeeBpsRevertNotPartyDAO() public {
+        uint16 newFeeBps = 500; // 5%
+        vm.expectRevert(
+            abi.encodeWithSelector(FeeCollector.OnlyPartyDAO.selector)
+        );
+        feeCollector.setPartyDaoFeeBps(newFeeBps);
     }
 }
