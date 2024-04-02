@@ -29,8 +29,8 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         partyDao = payable(vm.createWallet("PartyDAO").addr);
         feeCollector = new FeeCollector(
             positionManager,
-            distributor,
             partyDao,
+            100,
             IWETH(uniswap.WETH)
         );
         creator = new ERC20CreatorV3(

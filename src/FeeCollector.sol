@@ -20,7 +20,6 @@ struct PositionData {
 
 contract FeeCollector is IERC721Receiver {
     INonfungiblePositionManager public immutable POSITION_MANAGER;
-    ITokenDistributor public immutable TOKEN_DISTRIBUTOR;
     address payable public immutable PARTY_DAO;
     IWETH public immutable WETH;
 
@@ -46,14 +45,14 @@ contract FeeCollector is IERC721Receiver {
 
     constructor(
         INonfungiblePositionManager _positionManager,
-        ITokenDistributor _tokenDistributor,
         address payable _partyDao,
+        uint16 _partyDaoFeeBps,
         IWETH _weth
     ) {
         POSITION_MANAGER = _positionManager;
-        TOKEN_DISTRIBUTOR = _tokenDistributor;
         PARTY_DAO = _partyDao;
         WETH = _weth;
+        partyDaoFeeBps = _partyDaoFeeBps;
     }
 
     function collectAndDistributeFees(
