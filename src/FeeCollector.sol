@@ -13,16 +13,8 @@ struct FeeRecipient {
     uint16 percentageBps;
 }
 
-struct PositionParams {
-    Party party;
-    bool isFirstRecipientDistributor;
-    FeeRecipient[] recipients;
-}
-
 struct PositionData {
     Party party;
-    uint40 lastCollectTimestamp;
-    bool isFirstRecipientDistributor;
     FeeRecipient[] recipients;
 }
 
@@ -33,9 +25,24 @@ contract FeeCollector is IERC721Receiver {
     IWETH public immutable WETH;
 
     uint16 public partyDaoFeeBps;
-    uint256 public collectCooldown = 7 days;
 
     mapping(uint256 tokenId => PositionData) public getPositionData;
+
+    error CooldownNotOver();
+    error InvalidLPPosition();
+    error OnlyPartyDAO();
+    error OnlyV3PositionManager();
+    error InvalidPercentageBps();
+
+    event FeesCollectedAndDistributed(
+        uint256 tokenId,
+        uint256 ethAmount,
+        uint256 tokenAmount,
+        uint256 partyDaoFee,
+        FeeRecipient[] recipients
+    );
+    event PartyDaoFeeBpsUpdated(uint16 oldFeeBps, uint16 newFeeBps);
+    event CollectCooldownUpdated(uint256 oldCooldown, uint256 newCooldown);
 
     constructor(
         INonfungiblePositionManager _positionManager,
@@ -53,11 +60,6 @@ contract FeeCollector is IERC721Receiver {
         uint256 tokenId
     ) external returns (uint256 ethAmount, uint256 tokenAmount) {
         PositionData storage data = getPositionData[tokenId];
-        require(
-            block.timestamp >= data.lastCollectTimestamp + collectCooldown,
-            "Cooldown not over"
-        );
-        data.lastCollectTimestamp = uint40(block.timestamp);
 
         // Collect fees from the LP position
         INonfungiblePositionManager.CollectParams
@@ -83,7 +85,7 @@ contract FeeCollector is IERC721Receiver {
             ethAmount = amount1;
             tokenAmount = amount0;
         } else {
-            revert("Invalid LP position");
+            revert InvalidLPPosition();
         }
 
         // Convert WETH to ETH
@@ -102,36 +104,31 @@ contract FeeCollector is IERC721Receiver {
             uint256 recipientTokenFee = (tokenAmount *
                 recipient.percentageBps) / 1e4;
 
-            if (data.isFirstRecipientDistributor && i == 0) {
-                TOKEN_DISTRIBUTOR.createNativeDistribution{
-                    value: recipientEthFee
-                }(data.party, payable(address(0)), 0);
-
-                token.transfer(address(TOKEN_DISTRIBUTOR), recipientTokenFee);
-                TOKEN_DISTRIBUTOR.createErc20Distribution(
-                    IERC20(address(token)),
-                    data.party,
-                    payable(address(0)),
-                    0
-                );
-            } else {
+            if (recipientTokenFee > 0) {
                 token.transfer(recipient.recipient, recipientTokenFee);
+            }
+
+            if (recipientEthFee > 0) {
                 payable(recipient.recipient).call{
                     value: recipientEthFee,
                     gas: 100_000
                 }("");
             }
         }
+
+        emit FeesCollectedAndDistributed(
+            tokenId,
+            ethAmount,
+            tokenAmount,
+            partyDaoFee,
+            data.recipients
+        );
     }
 
     function setPartyDaoFeeBps(uint16 _partyDaoFeeBps) external {
-        require(msg.sender == PARTY_DAO, "Only PartyDAO can set fee");
+        if (msg.sender != PARTY_DAO) revert OnlyPartyDAO();
+        emit PartyDaoFeeBpsUpdated(partyDaoFeeBps, _partyDaoFeeBps);
         partyDaoFeeBps = _partyDaoFeeBps;
-    }
-
-    function setCollectCooldown(uint256 _collectCooldown) external {
-        require(msg.sender == PARTY_DAO, "Only PartyDAO can set cooldown");
-        collectCooldown = _collectCooldown;
     }
 
     function getFeeRecipients(
@@ -146,13 +143,12 @@ contract FeeCollector is IERC721Receiver {
         uint256 tokenId,
         bytes calldata data
     ) external returns (bytes4) {
-        require(msg.sender == address(POSITION_MANAGER), "Only V3 LP");
-        PositionParams memory params = abi.decode(data, (PositionParams));
+        if (msg.sender != address(POSITION_MANAGER))
+            revert OnlyV3PositionManager();
 
+        PositionData memory params = abi.decode(data, (PositionData));
         PositionData storage position = getPositionData[tokenId];
         position.party = params.party;
-        position.isFirstRecipientDistributor = params
-            .isFirstRecipientDistributor;
 
         uint256 totalPercentageBps;
         for (uint256 i = 0; i < params.recipients.length; i++) {
@@ -160,7 +156,7 @@ contract FeeCollector is IERC721Receiver {
             totalPercentageBps += params.recipients[i].percentageBps;
         }
 
-        require(totalPercentageBps == 1e4, "Total percentageBps must be 100%");
+        if (totalPercentageBps != 1e4) revert InvalidPercentageBps();
 
         return this.onERC721Received.selector;
     }

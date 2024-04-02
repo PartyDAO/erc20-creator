@@ -3,7 +3,7 @@ pragma solidity ^0.8;
 
 import {Test} from "forge-std/Test.sol";
 import {MockUniswapV3Deployer} from "./mock/MockUniswapV3Deployer.t.sol";
-import {ERC20CreatorV3, IERC20, FeeRecipient, PositionParams} from "src/ERC20CreatorV3.sol";
+import {ERC20CreatorV3, IERC20, FeeRecipient, PositionData} from "src/ERC20CreatorV3.sol";
 import {ITokenDistributor, Party} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {MockTokenDistributor} from "./mock/MockTokenDistributor.t.sol";
 import {INonfungiblePositionManager} from "@uniswap/v3-periphery/interfaces/INonfungiblePositionManager.sol";
@@ -80,9 +80,8 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
             percentageBps: 2_500
         });
 
-        PositionParams memory positionParams = PositionParams({
+        PositionData memory positionParams = PositionData({
             party: party,
-            isFirstRecipientDistributor: true,
             recipients: recipients
         });
 
@@ -137,7 +136,7 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
 
     function test_createToken_invalidPoolFeeReverts() external {
         ERC20CreatorV3.TokenDistributionConfiguration memory tokenConfig;
-        PositionParams memory positionParams;
+        PositionData memory positionParams;
 
         vm.expectRevert(ERC20CreatorV3.InvalidPoolFee.selector);
         creator.createToken(
