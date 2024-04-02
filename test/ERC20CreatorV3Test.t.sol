@@ -128,7 +128,7 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
 
         assertEq(
             address(this).balance,
-            beforeBalanceThis + (ethForLp * 100) / 10_000
+            beforeBalanceThis + (ethForLp * 100) / 10_000 // Got the fee
         );
         assertEq(
             token.balanceOf(address(this)),
@@ -158,6 +158,10 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
         assertEq(pulledFeeRecipients.length, 2);
         assertEq(abi.encode(pulledFeeRecipients[0]), abi.encode(recipients[0]));
         assertEq(abi.encode(pulledFeeRecipients[1]), abi.encode(recipients[1]));
+
+        (,bytes memory res) = address(token).call(abi.encodeWithSignature("totalSupply()"));
+        uint256 totalSupply = abi.decode(res, (uint256));
+        assertEq(totalSupply, tokenConfig.totalSupply);
     }
 
     function test_createToken_invalidPoolFeeReverts() external {
@@ -175,6 +179,40 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
             10_001,
             positionData
         );
+    }
+
+    function test_setFeeRecipient_error_onlyFeeRecipient() external {
+        vm.expectRevert(ERC20CreatorV3.OnlyFeeRecipient.selector);
+        vm.prank(address(uniswap.POSITION_MANAGER));
+        creator.setFeeRecipient(address(this));
+    }
+
+    event FeeRecipientUpdated(
+        address indexed oldFeeRecipient,
+        address indexed newFeeRecipient
+    );
+
+    function test_setFeeRecipient_success() external {
+        vm.expectEmit();
+        emit FeeRecipientUpdated(address(this), address(0));
+        creator.setFeeRecipient(address(0));
+    }
+
+    function test_setFeeBasisPoints_error_onlyFeeRecipient() external {
+        vm.expectRevert(ERC20CreatorV3.OnlyFeeRecipient.selector);
+        vm.prank(address(uniswap.POSITION_MANAGER));
+        creator.setFeeBasisPoints(2_000);
+    }
+
+    event FeeBasisPointsUpdated(
+        uint16 oldFeeBasisPoints,
+        uint16 newFeeBasisPoints
+    );
+
+    function test_setFeeBasisPoints_success() external {
+        vm.expectEmit();
+        emit FeeBasisPointsUpdated(100, 200);
+        creator.setFeeBasisPoints(200);
     }
 
     receive() external payable {}
