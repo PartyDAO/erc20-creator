@@ -36,20 +36,22 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
         party = Party(payable(address(new MockParty())));
         vm.label(address(party), "Party");
 
-        creator = new ERC20CreatorV3(
-            distributor,
-            INonfungiblePositionManager(uniswap.POSITION_MANAGER),
-            IUniswapV3Factory(uniswap.FACTORY),
-            uniswap.WETH,
-            address(this),
-            100
-        );
-
         feeCollector = new FeeCollector(
             INonfungiblePositionManager(uniswap.POSITION_MANAGER),
             distributor,
             payable(this),
             IWETH(uniswap.WETH)
+        );
+
+        creator = new ERC20CreatorV3(
+            distributor,
+            INonfungiblePositionManager(uniswap.POSITION_MANAGER),
+            IUniswapV3Factory(uniswap.FACTORY),
+            address(feeCollector),
+            uniswap.WETH,
+            address(this),
+            100,
+            10_000
         );
     }
 
@@ -78,22 +80,10 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
             tokenConfig.numTokensForDistribution +
             tokenConfig.numTokensForRecipient +
             tokenConfig.numTokensForLP;
-        vm.assume(tokenConfig.totalSupply < type(uint112).max);
-
-        FeeRecipient[] memory recipients = new FeeRecipient[](2);
-        recipients[0] = FeeRecipient({
-            recipient: address(distributor),
-            percentageBps: 7_500
-        });
-        recipients[1] = FeeRecipient({
-            recipient: address(this),
-            percentageBps: 2_500
-        });
-
-        PositionData memory positionData = PositionData({
-            party: party,
-            recipients: recipients
-        });
+        vm.assume(
+            tokenConfig.totalSupply < type(uint112).max &&
+                tokenConfig.totalSupply > 0
+        );
 
         vm.deal(address(party), ethForLp);
 
@@ -117,14 +107,11 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
                 "My Test Token",
                 "MTT",
                 tokenConfig,
-                address(this),
-                address(feeCollector),
-                10_000,
-                positionData
+                address(this)
             )
         );
 
-        address pool = creator.getPool(address(token), 10_000);
+        address pool = creator.getPool(address(token));
 
         assertEq(
             address(this).balance,
@@ -144,40 +131,44 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
             ethForLp - (ethForLp * 100) / 10_000
         );
 
-        Party party = feeCollector.getPositionData(
+        Party fetchedParty = feeCollector.getPositionData(
             MockUniswapNonfungiblePositionManager(uniswap.POSITION_MANAGER)
                 .lastTokenId()
         );
-        assertEq(address(party), address(party));
+        assertEq(address(fetchedParty), address(party));
 
         FeeRecipient[] memory pulledFeeRecipients = feeCollector
             .getFeeRecipients(
                 MockUniswapNonfungiblePositionManager(uniswap.POSITION_MANAGER)
                     .lastTokenId()
             );
-        assertEq(pulledFeeRecipients.length, 2);
-        assertEq(abi.encode(pulledFeeRecipients[0]), abi.encode(recipients[0]));
-        assertEq(abi.encode(pulledFeeRecipients[1]), abi.encode(recipients[1]));
+        assertEq(pulledFeeRecipients.length, 1);
+        assertEq(
+            abi.encode(pulledFeeRecipients[0]),
+            abi.encode(FeeRecipient({recipient: address(party), percentageBps: 10_000}))
+        );
 
-        (,bytes memory res) = address(token).call(abi.encodeWithSignature("totalSupply()"));
+        (, bytes memory res) = address(token).call(
+            abi.encodeWithSignature("totalSupply()")
+        );
         uint256 totalSupply = abi.decode(res, (uint256));
         assertEq(totalSupply, tokenConfig.totalSupply);
     }
 
-    function test_createToken_invalidPoolFeeReverts() external {
+    function test_constructor_invalidPoolFeeReverts() external {
         ERC20CreatorV3.TokenDistributionConfiguration memory tokenConfig;
         PositionData memory positionData;
 
         vm.expectRevert(ERC20CreatorV3.InvalidPoolFee.selector);
-        creator.createToken(
-            address(party),
-            "My Test Token",
-            "MTT",
-            tokenConfig,
+        creator = new ERC20CreatorV3(
+            distributor,
+            INonfungiblePositionManager(uniswap.POSITION_MANAGER),
+            IUniswapV3Factory(uniswap.FACTORY),
+            address(feeCollector),
+            uniswap.WETH,
             address(this),
-            address(1),
-            10_001,
-            positionData
+            100,
+            10_001
         );
     }
 

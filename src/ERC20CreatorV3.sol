@@ -45,14 +45,18 @@ contract ERC20CreatorV3 is IERC721Receiver {
     error OnlyFeeRecipient();
     error InvalidPoolFee();
 
+    address public immutable WETH;
     INonfungiblePositionManager public immutable UNISWAP_V3_POSITION_MANAGER;
     IUniswapV3Factory public immutable UNISWAP_V3_FACTORY;
     /// @dev Helper constant for calculating sqrtPriceX96
     uint256 private constant _X96 = 2 ** 96;
 
+    /// @notice Fee Collector address. All LP positions transferred here
+    address public immutable FEE_COLLECTOR;
+    /// @notice Uniswap V3 pool fee in hundredths of a bip
+    uint24 public immutable POOL_FEE;
     /// @notice PartyDao token distributor contract
     ITokenDistributor public immutable TOKEN_DISTRIBUTOR;
-    address public immutable WETH;
 
     /// @notice Address that receives fee split of ETH at LP creation
     address public feeRecipient;
@@ -62,16 +66,20 @@ contract ERC20CreatorV3 is IERC721Receiver {
     /// @param _tokenDistributor PartyDao token distributor contract
     /// @param _uniswapV3PositionManager Uniswap V3 position manager contract
     /// @param _uniswapV3Factory Uniswap V3 factory contract
+    /// @param feeCollector Fee collector address which v3 lp positions are transferred to.
     /// @param _weth WETH address
     /// @param _feeRecipient Address that receives fee split of ETH at LP creation
     /// @param _feeBasisPoints Fee basis points for ETH split on LP creation
+    /// @param poolFee Uniswap V3 pool fee in hundredths of a bip
     constructor(
         ITokenDistributor _tokenDistributor,
         INonfungiblePositionManager _uniswapV3PositionManager,
         IUniswapV3Factory _uniswapV3Factory,
+        address feeCollector,
         address _weth,
         address _feeRecipient,
-        uint16 _feeBasisPoints
+        uint16 _feeBasisPoints,
+        uint16 poolFee
     ) {
         TOKEN_DISTRIBUTOR = _tokenDistributor;
         UNISWAP_V3_POSITION_MANAGER = _uniswapV3PositionManager;
@@ -79,6 +87,10 @@ contract ERC20CreatorV3 is IERC721Receiver {
         WETH = _weth;
         feeRecipient = _feeRecipient;
         feeBasisPoints = _feeBasisPoints;
+        POOL_FEE = poolFee;
+        FEE_COLLECTOR = feeCollector;
+
+        if (poolFee != 100 && poolFee != 3000 && poolFee != 10_000) revert InvalidPoolFee();
     }
 
     /// @notice Creates a new ERC20 token, LPs it in a locked full range Uniswap V3 position, and distributes some of the new token to party members.
@@ -88,18 +100,13 @@ contract ERC20CreatorV3 is IERC721Receiver {
     /// @param symbol The symbol of the new token
     /// @param config Token distribution configuration. See above for additional information.
     /// @param tokenRecipientAddress The address to receive the tokens allocated for the token recipient
-    /// @param feeCollectorAddress Fee collector address where the LP will get locked
-    /// @param poolFee Pool swap fee in hundredths of a basis point. This MUST be 500, 3_000, or 10_000
     /// @return token The address of the newly created token
     function createToken(
         address party,
         string memory name,
         string memory symbol,
         TokenDistributionConfiguration memory config,
-        address tokenRecipientAddress,
-        address feeCollectorAddress,
-        uint16 poolFee,
-        PositionData calldata positionParams
+        address tokenRecipientAddress
     ) external payable returns (address) {
         // Require that tokens are fully distributed
         if (
@@ -110,11 +117,6 @@ contract ERC20CreatorV3 is IERC721Receiver {
             config.totalSupply > type(uint112).max
         ) {
             revert InvalidTokenDistribution();
-        }
-
-        // Only fees currently supported by uniswap
-        if (poolFee != 500 && poolFee != 3_000 && poolFee != 10_000) {
-            revert InvalidPoolFee();
         }
 
         // We use a changing salt to ensure address changes every block. If the LP position already exists, the TX will revert.
@@ -151,7 +153,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
             address pool = UNISWAP_V3_FACTORY.createPool(
                 address(token),
                 WETH,
-                poolFee
+                POOL_FEE
             );
 
             // Initialize pool for the derived starting price
@@ -178,9 +180,9 @@ contract ERC20CreatorV3 is IERC721Receiver {
                     INonfungiblePositionManager.MintParams({
                         token0: address(token),
                         token1: WETH,
-                        fee: poolFee,
-                        tickLower: int24(poolFee == 3_000 ? -887220 : -887200),
-                        tickUpper: int24(poolFee == 3_000 ? 887220 : 887200),
+                        fee: POOL_FEE,
+                        tickLower: int24(POOL_FEE == 3_000 ? -887220 : -887200),
+                        tickUpper: int24(POOL_FEE == 3_000 ? 887220 : 887200),
                         amount0Desired: config.numTokensForLP,
                         amount1Desired: msg.value - feeAmount,
                         amount0Min: 0,
@@ -215,12 +217,21 @@ contract ERC20CreatorV3 is IERC721Receiver {
             payable(party).call{value: address(this).balance}("");
         }
 
+        PositionData memory positionData = PositionData({
+            party: Party(payable(party)),
+            recipients: new FeeRecipient[](1)
+        });
+        positionData.recipients[0] = FeeRecipient({
+            recipient: payable(party),
+            percentageBps: 10_000
+        });
+
         // Transfer LP to fee collector contract
         UNISWAP_V3_POSITION_MANAGER.safeTransferFrom(
             address(this),
-            feeCollectorAddress,
+            FEE_COLLECTOR,
             lpTokenId,
-            abi.encode(positionParams)
+            abi.encode(positionData)
         );
 
         emit ERC20Created(
@@ -238,10 +249,9 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
     /// @notice Get the Uniswap V3 pool for a token
     function getPool(
-        address token,
-        uint16 poolFee
+        address token
     ) external view returns (address) {
-        return UNISWAP_V3_FACTORY.getPool(token, WETH, poolFee);
+        return UNISWAP_V3_FACTORY.getPool(token, WETH, POOL_FEE);
     }
 
     /// @notice Sets the fee recipient for ETH split on LP creation
