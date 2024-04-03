@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {MathLib} from "./utils/MathLib.sol";
+import {Math} from "openzeppelin-contracts/contracts/utils/math/Math.sol";
 import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import {IMulticall} from "v3-periphery/interfaces/IMulticall.sol";
 import {IUniswapV3Factory} from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
@@ -12,8 +12,6 @@ import {GovernableERC20} from "./GovernableERC20.sol";
 import {PositionData, FeeRecipient} from "./FeeCollector.sol";
 
 contract ERC20CreatorV3 is IERC721Receiver {
-    using MathLib for uint256;
-
     struct TokenDistributionConfiguration {
         uint256 totalSupply; // Total supply of the token
         uint256 numTokensForDistribution; // Number of tokens to distribute to the party
@@ -90,7 +88,8 @@ contract ERC20CreatorV3 is IERC721Receiver {
         POOL_FEE = poolFee;
         FEE_COLLECTOR = feeCollector;
 
-        if (poolFee != 100 && poolFee != 3000 && poolFee != 10_000) revert InvalidPoolFee();
+        if (poolFee != 100 && poolFee != 3000 && poolFee != 10_000)
+            revert InvalidPoolFee();
     }
 
     /// @notice Creates a new ERC20 token, LPs it in a locked full range Uniswap V3 position, and distributes some of the new token to party members.
@@ -158,8 +157,9 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
             // Initialize pool for the derived starting price
             uint160 sqrtPriceX96 = uint160(
-                ((((msg.value - feeAmount) * 1e18) / config.numTokensForLP)
-                    .sqrt() * _X96) / 1e9
+                (Math.sqrt(
+                    ((msg.value - feeAmount) * 1e18) / config.numTokensForLP
+                ) * _X96) / 1e9
             );
             IUniswapV3Pool(pool).initialize(sqrtPriceX96);
         }
@@ -248,9 +248,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
     }
 
     /// @notice Get the Uniswap V3 pool for a token
-    function getPool(
-        address token
-    ) external view returns (address) {
+    function getPool(address token) external view returns (address) {
         return UNISWAP_V3_FACTORY.getPool(token, WETH, POOL_FEE);
     }
 
