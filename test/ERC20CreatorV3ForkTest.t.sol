@@ -11,7 +11,7 @@ import {MockParty} from "./mock/MockParty.t.sol";
 import {FeeCollector} from "src/FeeCollector.sol";
 import {IWETH} from "v2-periphery/interfaces/IWETH.sol";
 
-contract ERC20CreatorV3Test is Test {
+contract ERC20CreatorV3ForkTest is Test {
     ERC20CreatorV3 public creator;
 
     ITokenDistributor public tokenDistributor;
@@ -44,8 +44,8 @@ contract ERC20CreatorV3Test is Test {
         feeCollector = new FeeCollector(
             positionManager,
             partyDao,
-            IWETH(address(weth)),
-            100
+            100,
+            IWETH(address(weth))
         );
     }
 

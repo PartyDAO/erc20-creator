@@ -88,7 +88,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
         POOL_FEE = poolFee;
         FEE_COLLECTOR = feeCollector;
 
-        if (poolFee != 100 && poolFee != 3000 && poolFee != 10_000)
+        if (poolFee != 500 && poolFee != 3000 && poolFee != 10_000)
             revert InvalidPoolFee();
     }
 
