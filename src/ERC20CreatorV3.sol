@@ -157,7 +157,17 @@ contract ERC20CreatorV3 is IERC721Receiver {
         // Take fee
         uint256 feeAmount = (msg.value * feeBasisPoints) / 1e4;
 
+        // The id of the LP nft
+        uint256 lpTokenId;
+
         {
+            (address token0, address token1) = WETH < address(token)
+                ? (WETH, address(token))
+                : (address(token), WETH);
+            (uint256 amount0, uint256 amount1) = WETH < address(token)
+                ? (msg.value - feeAmount, config.numTokensForLP)
+                : (config.numTokensForLP, msg.value - feeAmount);
+
             // Create and initialize pool. Reverts if pool already created.
             address pool = UNISWAP_V3_FACTORY.createPool(
                 address(token),
@@ -167,34 +177,28 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
             // Initialize pool for the derived starting price
             uint160 sqrtPriceX96 = uint160(
-                (Math.sqrt(
-                    ((msg.value - feeAmount) * 1e18) / config.numTokensForLP
-                ) * _X96) / 1e9
+                (Math.sqrt((amount1 * 1e18) / amount0) * _X96) / 1e9
             );
             IUniswapV3Pool(pool).initialize(sqrtPriceX96);
-        }
 
-        token.approve(
-            address(UNISWAP_V3_POSITION_MANAGER),
-            config.numTokensForLP
-        );
+            token.approve(
+                address(UNISWAP_V3_POSITION_MANAGER),
+                config.numTokensForLP
+            );
 
-        // The id of the LP nft
-        uint256 lpTokenId;
-        {
             // Use multicall to sweep back excess ETH
             bytes[] memory calls = new bytes[](2);
             calls[0] = abi.encodeCall(
                 UNISWAP_V3_POSITION_MANAGER.mint,
                 (
                     INonfungiblePositionManager.MintParams({
-                        token0: address(token),
-                        token1: WETH,
+                        token0: token0,
+                        token1: token1,
                         fee: POOL_FEE,
                         tickLower: MIN_TICK,
                         tickUpper: MAX_TICK,
-                        amount0Desired: config.numTokensForLP,
-                        amount1Desired: msg.value - feeAmount,
+                        amount0Desired: amount0,
+                        amount1Desired: amount1,
                         amount0Min: 0,
                         amount1Min: 0,
                         recipient: address(this),
