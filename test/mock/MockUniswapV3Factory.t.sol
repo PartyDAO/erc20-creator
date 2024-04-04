@@ -19,6 +19,7 @@ contract MockUniswapV3Factory is IUniswapV3Factory {
             }()
         );
         pools[tokenA][tokenB][fee] = pool;
+        pools[tokenB][tokenA][fee] = pool;
     }
 
     function getPool(
