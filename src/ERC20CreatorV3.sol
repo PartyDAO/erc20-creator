@@ -42,6 +42,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
     error InvalidTokenDistribution();
     error OnlyFeeRecipient();
     error InvalidPoolFee();
+    error InvalidFeeBasisPoints();
 
     address public immutable WETH;
     INonfungiblePositionManager public immutable UNISWAP_V3_POSITION_MANAGER;
@@ -83,6 +84,10 @@ contract ERC20CreatorV3 is IERC721Receiver {
         uint16 feeBasisPoints_,
         uint16 poolFee
     ) {
+        if (poolFee != 500 && poolFee != 3000 && poolFee != 10_000)
+            revert InvalidPoolFee();
+        if(feeBasisPoints_ > 5e3) revert InvalidFeeBasisPoints();
+
         TOKEN_DISTRIBUTOR = tokenDistributor;
         UNISWAP_V3_POSITION_MANAGER = uniswapV3PositionManager;
         UNISWAP_V3_FACTORY = uniswapV3Factory;
@@ -91,9 +96,6 @@ contract ERC20CreatorV3 is IERC721Receiver {
         feeBasisPoints = feeBasisPoints_;
         POOL_FEE = poolFee;
         FEE_COLLECTOR = feeCollector;
-
-        if (poolFee != 500 && poolFee != 3000 && poolFee != 10_000)
-            revert InvalidPoolFee();
 
         int24 tickSpacing = UNISWAP_V3_FACTORY.feeAmountTickSpacing(POOL_FEE);
         MAX_TICK = (887272 /* TickMath.MAX_TICK */ / tickSpacing) * tickSpacing;
@@ -275,22 +277,23 @@ contract ERC20CreatorV3 is IERC721Receiver {
     }
 
     /// @notice Sets the fee recipient for ETH split on LP creation
-    function setFeeRecipient(address _feeRecipient) external {
+    function setFeeRecipient(address feeRecipient_) external {
         address oldFeeRecipient = feeRecipient;
 
         if (msg.sender != oldFeeRecipient) revert OnlyFeeRecipient();
-        feeRecipient = _feeRecipient;
+        feeRecipient = feeRecipient_;
 
-        emit FeeRecipientUpdated(oldFeeRecipient, _feeRecipient);
+        emit FeeRecipientUpdated(oldFeeRecipient, feeRecipient_);
     }
 
     /// @notice Sets the fee basis points for ETH split on LP creation
-    /// @param _feeBasisPoints The new fee basis points in basis points
-    function setFeeBasisPoints(uint16 _feeBasisPoints) external {
+    /// @param feeBasisPoints_ The new fee basis points in basis points
+    function setFeeBasisPoints(uint16 feeBasisPoints_) external {
         if (msg.sender != feeRecipient) revert OnlyFeeRecipient();
-        emit FeeBasisPointsUpdated(feeBasisPoints, _feeBasisPoints);
+        if(feeBasisPoints_ > 5e3) revert InvalidFeeBasisPoints();
+        emit FeeBasisPointsUpdated(feeBasisPoints, feeBasisPoints_);
 
-        feeBasisPoints = _feeBasisPoints;
+        feeBasisPoints = feeBasisPoints_;
     }
 
     /// @notice Allow contract to receive refund from position manager
