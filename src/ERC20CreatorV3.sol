@@ -53,6 +53,10 @@ contract ERC20CreatorV3 is IERC721Receiver {
     address public immutable FEE_COLLECTOR;
     /// @notice Uniswap V3 pool fee in hundredths of a bip
     uint24 public immutable POOL_FEE;
+    /// @notice The maxTick for the given pool fee
+    int24 public immutable MAX_TICK;
+    /// @notice The minTick for the given pool fee
+    int24 public immutable MIN_TICK;
     /// @notice PartyDao token distributor contract
     ITokenDistributor public immutable TOKEN_DISTRIBUTOR;
 
@@ -90,6 +94,10 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
         if (poolFee != 500 && poolFee != 3000 && poolFee != 10_000)
             revert InvalidPoolFee();
+
+        int24 tickSpacing = UNISWAP_V3_FACTORY.feeAmountTickSpacing(POOL_FEE);
+        MAX_TICK = (887272 /* TickMath.MAX_TICK */ / tickSpacing) * tickSpacing;
+        MIN_TICK = (-887272 /* TickMath.MIN_TICK */ / tickSpacing) * tickSpacing;
     }
 
     /// @notice Creates a new ERC20 token, LPs it in a locked full range Uniswap V3 position, and distributes some of the new token to party members.
@@ -181,8 +189,8 @@ contract ERC20CreatorV3 is IERC721Receiver {
                         token0: address(token),
                         token1: WETH,
                         fee: POOL_FEE,
-                        tickLower: int24(POOL_FEE == 3_000 ? -887220 : -887200),
-                        tickUpper: int24(POOL_FEE == 3_000 ? 887220 : 887200),
+                        tickLower: MIN_TICK,
+                        tickUpper: MAX_TICK,
                         amount0Desired: config.numTokensForLP,
                         amount1Desired: msg.value - feeAmount,
                         amount0Min: 0,

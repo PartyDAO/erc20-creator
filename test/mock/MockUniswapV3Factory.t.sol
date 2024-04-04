@@ -31,6 +31,8 @@ contract MockUniswapV3Factory is IUniswapV3Factory {
 
     function setOwner(address _owner) external {}
     function enableFeeAmount(uint24 fee, int24 tickSpacing) external {}
-    function feeAmountTickSpacing(uint24 fee) external view returns (int24) {}
+    function feeAmountTickSpacing(uint24 fee) external view returns (int24) {
+        return 100;
+    }
     function owner() external view returns (address) {}
 }
