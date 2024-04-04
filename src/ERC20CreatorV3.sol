@@ -97,7 +97,9 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
         int24 tickSpacing = UNISWAP_V3_FACTORY.feeAmountTickSpacing(POOL_FEE);
         MAX_TICK = (887272 /* TickMath.MAX_TICK */ / tickSpacing) * tickSpacing;
-        MIN_TICK = (-887272 /* TickMath.MIN_TICK */ / tickSpacing) * tickSpacing;
+        MIN_TICK =
+            (-887272 /* TickMath.MIN_TICK */ / tickSpacing) *
+            tickSpacing;
     }
 
     /// @notice Creates a new ERC20 token, LPs it in a locked full range Uniswap V3 position, and distributes some of the new token to party members.
@@ -223,6 +225,14 @@ contract ERC20CreatorV3 is IERC721Receiver {
         // Transfer remaining ETH to the party
         if (address(this).balance > 0) {
             payable(party).call{value: address(this).balance}("");
+        }
+
+        // Refund any remaining dust of the token to the party
+        {
+            uint256 remainingTokenBalance = token.balanceOf(address(this));
+            if (remainingTokenBalance > 0) {
+                token.transfer(party, remainingTokenBalance);
+            }
         }
 
         PositionData memory positionData = PositionData({
