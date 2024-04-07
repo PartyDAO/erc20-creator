@@ -136,7 +136,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
             address(
                 new GovernableERC20{
                     salt: keccak256(
-                        abi.encode(blockhash(block.number), msg.sender)
+                        abi.encode(blockhash(block.number - 1), msg.sender)
                     )
                 }(name, symbol, config.totalSupply, address(this))
             )
