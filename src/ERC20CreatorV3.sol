@@ -86,7 +86,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
     ) {
         if (poolFee != 500 && poolFee != 3000 && poolFee != 10_000)
             revert InvalidPoolFee();
-        if(feeBasisPoints_ > 5e3) revert InvalidFeeBasisPoints();
+        if (feeBasisPoints_ > 5e3) revert InvalidFeeBasisPoints();
 
         TOKEN_DISTRIBUTOR = tokenDistributor;
         UNISWAP_V3_POSITION_MANAGER = uniswapV3PositionManager;
@@ -237,6 +237,8 @@ contract ERC20CreatorV3 is IERC721Receiver {
         {
             uint256 remainingTokenBalance = token.balanceOf(address(this));
             if (remainingTokenBalance > 0) {
+                // Adjust the numTokensForLP to reflect the actual amount used
+                config.numTokensForLP -= remainingTokenBalance;
                 token.transfer(party, remainingTokenBalance);
             }
         }
@@ -290,7 +292,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
     /// @param feeBasisPoints_ The new fee basis points in basis points
     function setFeeBasisPoints(uint16 feeBasisPoints_) external {
         if (msg.sender != feeRecipient) revert OnlyFeeRecipient();
-        if(feeBasisPoints_ > 5e3) revert InvalidFeeBasisPoints();
+        if (feeBasisPoints_ > 5e3) revert InvalidFeeBasisPoints();
         emit FeeBasisPointsUpdated(feeBasisPoints, feeBasisPoints_);
 
         feeBasisPoints = feeBasisPoints_;
