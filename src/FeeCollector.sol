@@ -27,7 +27,6 @@ contract FeeCollector is IERC721Receiver {
 
     mapping(uint256 tokenId => PositionData) public getPositionData;
 
-    error CooldownNotOver();
     error InvalidLPPosition();
     error OnlyPartyDAO();
     error OnlyV3PositionManager();
@@ -41,7 +40,6 @@ contract FeeCollector is IERC721Receiver {
         FeeRecipient[] recipients
     );
     event PartyDaoFeeBpsUpdated(uint16 oldFeeBps, uint16 newFeeBps);
-    event CollectCooldownUpdated(uint256 oldCooldown, uint256 newCooldown);
 
     constructor(
         INonfungiblePositionManager _positionManager,

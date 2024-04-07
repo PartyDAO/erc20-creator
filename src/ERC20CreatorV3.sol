@@ -240,7 +240,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
         // Transfer remaining ETH to the party
         if (address(this).balance > 0) {
-            payable(party).call{value: address(this).balance}("");
+            payable(party).call{value: address(this).balance, gas: 100_000}("");
         }
 
         PositionData memory positionData = PositionData({
@@ -262,7 +262,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
         emit ERC20Created(
             address(token),
-            msg.sender,
+            party,
             tokenRecipientAddress,
             name,
             symbol,
