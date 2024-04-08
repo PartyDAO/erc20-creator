@@ -130,4 +130,41 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         );
         feeCollector.setPartyDaoFeeBps(newFeeBps);
     }
+
+    function testSetFeeRecipients() public {
+        FeeRecipient[] memory recipients = new FeeRecipient[](1);
+        recipients[0] = FeeRecipient(payable(address(party)), 1e4);
+
+        (IERC20 token, uint256 tokenId) = _setUpTokenAndPool();
+
+        vm.prank(address(party));
+        feeCollector.setFeeRecipients(tokenId, recipients);
+
+        FeeRecipient[] memory storedRecipients = feeCollector.getFeeRecipients(
+            tokenId
+        );
+
+        for (uint256 i = 0; i < recipients.length; i++) {
+            assertEq(storedRecipients[i].recipient, recipients[i].recipient);
+            assertEq(
+                storedRecipients[i].percentageBps,
+                recipients[i].percentageBps
+            );
+        }
+    }
+
+    function testSetFeeRecipientsRevertNotParty() public {
+        FeeRecipient[] memory recipients = new FeeRecipient[](1);
+        recipients[0] = FeeRecipient(payable(address(party)), 1e4);
+
+        (IERC20 token, uint256 tokenId) = _setUpTokenAndPool();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                FeeCollector.OnlyParty.selector,
+                address(party)
+            )
+        );
+        feeCollector.setFeeRecipients(tokenId, recipients);
+    }
 }
