@@ -29,16 +29,23 @@ contract FeeCollector is IERC721Receiver {
 
     error CooldownNotOver();
     error InvalidLPPosition();
+    error OnlyParty(Party party);
     error OnlyPartyDAO();
     error OnlyV3PositionManager();
     error InvalidPercentageBps();
 
     event FeesCollectedAndDistributed(
-        uint256 tokenId,
+        uint256 indexed tokenId,
         uint256 ethAmount,
         uint256 tokenAmount,
         uint256 partyDaoFee,
         FeeRecipient[] recipients
+    );
+    event FeeRecipientsUpdated(
+        uint256 indexed tokenId,
+        Party indexed party,
+        FeeRecipient[] oldRecipients,
+        FeeRecipient[] newRecipients
     );
     event PartyDaoFeeBpsUpdated(uint16 oldFeeBps, uint16 newFeeBps);
     event CollectCooldownUpdated(uint256 oldCooldown, uint256 newCooldown);
@@ -140,6 +147,25 @@ contract FeeCollector is IERC721Receiver {
         if (msg.sender != PARTY_DAO) revert OnlyPartyDAO();
         emit PartyDaoFeeBpsUpdated(partyDaoFeeBps, _partyDaoFeeBps);
         partyDaoFeeBps = _partyDaoFeeBps;
+    }
+
+    function setFeeRecipients(
+        uint256 tokenId,
+        FeeRecipient[] calldata recipients
+    ) external {
+        PositionData memory position = getPositionData[tokenId];
+
+        if (msg.sender != address(position.party))
+            revert OnlyParty(position.party);
+
+        emit FeeRecipientsUpdated(
+            tokenId,
+            position.party,
+            position.recipients,
+            recipients
+        );
+
+        position.recipients = recipients;
     }
 
     function getFeeRecipients(
