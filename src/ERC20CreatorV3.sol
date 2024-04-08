@@ -223,16 +223,6 @@ contract ERC20CreatorV3 is IERC721Receiver {
             token.transfer(tokenRecipientAddress, config.numTokensForRecipient);
         }
 
-        // Transfer fee
-        if (feeAmount > 0) {
-            feeRecipient.call{value: feeAmount, gas: 100_000}("");
-        }
-
-        // Transfer remaining ETH to the party
-        if (address(this).balance > 0) {
-            payable(party).call{value: address(this).balance}("");
-        }
-
         // Refund any remaining dust of the token to the party
         {
             uint256 remainingTokenBalance = token.balanceOf(address(this));
@@ -241,6 +231,16 @@ contract ERC20CreatorV3 is IERC721Receiver {
                 config.numTokensForLP -= remainingTokenBalance;
                 token.transfer(party, remainingTokenBalance);
             }
+        }
+
+        // Transfer fee
+        if (feeAmount > 0) {
+            feeRecipient.call{value: feeAmount, gas: 100_000}("");
+        }
+
+        // Transfer remaining ETH to the party
+        if (address(this).balance > 0) {
+            payable(party).call{value: address(this).balance}("");
         }
 
         PositionData memory positionData = PositionData({
