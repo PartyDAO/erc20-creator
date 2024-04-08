@@ -9,7 +9,7 @@ import {IUniswapV3Pool} from "v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {IERC721Receiver} from "openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
 import {ITokenDistributor, IERC20, Party} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {GovernableERC20} from "./GovernableERC20.sol";
-import {PositionData, FeeRecipient} from "./FeeCollector.sol";
+import {FeeRecipient} from "./FeeCollector.sol";
 
 contract ERC20CreatorV3 is IERC721Receiver {
     struct TokenDistributionConfiguration {
@@ -243,11 +243,8 @@ contract ERC20CreatorV3 is IERC721Receiver {
             payable(party).call{value: address(this).balance, gas: 100_000}("");
         }
 
-        PositionData memory positionData = PositionData({
-            party: Party(payable(party)),
-            recipients: new FeeRecipient[](1)
-        });
-        positionData.recipients[0] = FeeRecipient({
+        FeeRecipient[] memory recipients = new FeeRecipient[](1);
+        recipients[0] = FeeRecipient({
             recipient: payable(party),
             percentageBps: 10_000
         });
@@ -257,7 +254,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
             address(this),
             FEE_COLLECTOR,
             lpTokenId,
-            abi.encode(positionData)
+            abi.encode(recipients)
         );
 
         emit ERC20Created(

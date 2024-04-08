@@ -19,7 +19,6 @@ contract ERC20CreatorV3ForkTest is Test {
 
     Party public party;
     uint16 public feeBasisPoints;
-    PositionData public positionParams;
     FeeCollector public feeCollector;
     INonfungiblePositionManager public positionManager;
     address payable public partyDao;
