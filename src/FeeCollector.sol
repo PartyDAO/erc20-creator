@@ -13,11 +13,6 @@ struct FeeRecipient {
     uint16 percentageBps;
 }
 
-struct PositionData {
-    Party party;
-    FeeRecipient[] recipients;
-}
-
 contract FeeCollector is IERC721Receiver {
     INonfungiblePositionManager public immutable POSITION_MANAGER;
     address payable public immutable PARTY_DAO;
@@ -25,9 +20,9 @@ contract FeeCollector is IERC721Receiver {
 
     uint16 public partyDaoFeeBps;
 
-    mapping(uint256 tokenId => PositionData) public getPositionData;
+    mapping(uint256 tokenId => FeeRecipient[] recipients)
+        private _feeRecipients;
 
-    error CooldownNotOver();
     error InvalidLPPosition();
     error OnlyPartyDAO();
     error OnlyV3PositionManager();
@@ -41,7 +36,6 @@ contract FeeCollector is IERC721Receiver {
         FeeRecipient[] recipients
     );
     event PartyDaoFeeBpsUpdated(uint16 oldFeeBps, uint16 newFeeBps);
-    event CollectCooldownUpdated(uint256 oldCooldown, uint256 newCooldown);
 
     constructor(
         INonfungiblePositionManager _positionManager,
@@ -104,7 +98,7 @@ contract FeeCollector is IERC721Receiver {
         uint256 partyDaoFee = (ethAmount * partyDaoFeeBps) / 1e4;
         PARTY_DAO.call{value: partyDaoFee, gas: 100_000}("");
 
-        FeeRecipient[] memory recipients = getPositionData[tokenId].recipients;
+        FeeRecipient[] memory recipients = _feeRecipients[tokenId];
 
         // Distribute the ETH and tokens to recipients
         uint256 remainingEthFees = ethAmount - partyDaoFee;
@@ -145,7 +139,7 @@ contract FeeCollector is IERC721Receiver {
     function getFeeRecipients(
         uint256 tokenId
     ) external view returns (FeeRecipient[] memory) {
-        return getPositionData[tokenId].recipients;
+        return _feeRecipients[tokenId];
     }
 
     function onERC721Received(
@@ -157,14 +151,13 @@ contract FeeCollector is IERC721Receiver {
         if (msg.sender != address(POSITION_MANAGER))
             revert OnlyV3PositionManager();
 
-        PositionData memory params = abi.decode(data, (PositionData));
-        PositionData storage position = getPositionData[tokenId];
-        position.party = params.party;
+        FeeRecipient[] memory _recipients = abi.decode(data, (FeeRecipient[]));
+        FeeRecipient[] storage recipients = _feeRecipients[tokenId];
 
         uint256 totalPercentageBps;
-        for (uint256 i = 0; i < params.recipients.length; i++) {
-            position.recipients.push(params.recipients[i]);
-            totalPercentageBps += params.recipients[i].percentageBps;
+        for (uint256 i = 0; i < _recipients.length; i++) {
+            recipients.push(_recipients[i]);
+            totalPercentageBps += _recipients[i].percentageBps;
         }
 
         if (totalPercentageBps != 1e4) revert InvalidPercentageBps();

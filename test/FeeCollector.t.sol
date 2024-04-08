@@ -6,7 +6,7 @@ import {MockUniswapV3Deployer, MockUniswapNonfungiblePositionManager} from "./mo
 import {MockTokenDistributor} from "./mock/MockTokenDistributor.t.sol";
 import {MockParty} from "./mock/MockParty.t.sol";
 import {ERC20CreatorV3, IERC20} from "src/ERC20CreatorV3.sol";
-import {FeeCollector, FeeRecipient, PositionData, IWETH} from "../src/FeeCollector.sol";
+import {FeeCollector, FeeRecipient, IWETH} from "../src/FeeCollector.sol";
 import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import {ITokenDistributor} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {IUniswapV3Factory} from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
@@ -79,12 +79,10 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
 
         (IERC20 token, uint256 tokenId) = _setUpTokenAndPool();
 
-        Party storedParty = feeCollector.getPositionData(tokenId);
         FeeRecipient[] memory storedRecipients = feeCollector.getFeeRecipients(
             tokenId
         );
 
-        assertEq(address(storedParty), address(party));
         for (uint256 i = 0; i < recipients.length; i++) {
             assertEq(storedRecipients[i].recipient, recipients[i].recipient);
             assertEq(
