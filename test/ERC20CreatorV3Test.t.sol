@@ -3,8 +3,8 @@ pragma solidity ^0.8;
 
 import {Test} from "forge-std/Test.sol";
 import {MockUniswapV3Deployer} from "./mock/MockUniswapV3Deployer.t.sol";
-import {ERC20CreatorV3, IERC20, FeeRecipient, PositionData} from "src/ERC20CreatorV3.sol";
-import {FeeCollector, IWETH, FeeRecipient, PositionData} from "src/FeeCollector.sol";
+import {ERC20CreatorV3, IERC20, FeeRecipient} from "src/ERC20CreatorV3.sol";
+import {FeeCollector, IWETH} from "src/FeeCollector.sol";
 import {MockUniswapNonfungiblePositionManager} from "test/mock/MockUniswapNonfungiblePositionManager.t.sol";
 import {ITokenDistributor, Party} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {MockTokenDistributor} from "./mock/MockTokenDistributor.t.sol";
@@ -131,21 +131,16 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
             ethForLp - (ethForLp * 100) / 10_000
         );
 
-        Party fetchedParty = feeCollector.getPositionData(
+        FeeRecipient[] memory feeRecipients = feeCollector.getFeeRecipients(
             MockUniswapNonfungiblePositionManager(uniswap.POSITION_MANAGER)
                 .lastTokenId()
         );
-        assertEq(address(fetchedParty), address(party));
-
-        FeeRecipient[] memory pulledFeeRecipients = feeCollector
-            .getFeeRecipients(
-                MockUniswapNonfungiblePositionManager(uniswap.POSITION_MANAGER)
-                    .lastTokenId()
-            );
-        assertEq(pulledFeeRecipients.length, 1);
+        assertEq(feeRecipients.length, 1);
         assertEq(
-            abi.encode(pulledFeeRecipients[0]),
-            abi.encode(FeeRecipient({recipient: address(party), percentageBps: 10_000}))
+            abi.encode(feeRecipients[0]),
+            abi.encode(
+                FeeRecipient({recipient: address(party), percentageBps: 10_000})
+            )
         );
 
         (, bytes memory res) = address(token).call(
@@ -157,7 +152,6 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
 
     function test_constructor_invalidPoolFeeReverts() external {
         ERC20CreatorV3.TokenDistributionConfiguration memory tokenConfig;
-        PositionData memory positionData;
 
         vm.expectRevert(ERC20CreatorV3.InvalidPoolFee.selector);
         creator = new ERC20CreatorV3(

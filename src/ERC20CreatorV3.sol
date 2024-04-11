@@ -9,7 +9,7 @@ import {IUniswapV3Pool} from "v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {IERC721Receiver} from "openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
 import {ITokenDistributor, IERC20, Party} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {GovernableERC20} from "./GovernableERC20.sol";
-import {PositionData, FeeRecipient} from "./FeeCollector.sol";
+import {FeeRecipient} from "./FeeCollector.sol";
 
 contract ERC20CreatorV3 is IERC721Receiver {
     struct TokenDistributionConfiguration {
@@ -42,6 +42,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
     error InvalidTokenDistribution();
     error OnlyFeeRecipient();
     error InvalidPoolFee();
+    error InvalidFeeBasisPoints();
 
     address public immutable WETH;
     INonfungiblePositionManager public immutable UNISWAP_V3_POSITION_MANAGER;
@@ -53,6 +54,10 @@ contract ERC20CreatorV3 is IERC721Receiver {
     address public immutable FEE_COLLECTOR;
     /// @notice Uniswap V3 pool fee in hundredths of a bip
     uint24 public immutable POOL_FEE;
+    /// @notice The maxTick for the given pool fee
+    int24 public immutable MAX_TICK;
+    /// @notice The minTick for the given pool fee
+    int24 public immutable MIN_TICK;
     /// @notice PartyDao token distributor contract
     ITokenDistributor public immutable TOKEN_DISTRIBUTOR;
 
@@ -79,6 +84,10 @@ contract ERC20CreatorV3 is IERC721Receiver {
         uint16 feeBasisPoints_,
         uint16 poolFee
     ) {
+        if (poolFee != 500 && poolFee != 3000 && poolFee != 10_000)
+            revert InvalidPoolFee();
+        if (feeBasisPoints_ > 5e3) revert InvalidFeeBasisPoints();
+
         TOKEN_DISTRIBUTOR = tokenDistributor;
         UNISWAP_V3_POSITION_MANAGER = uniswapV3PositionManager;
         UNISWAP_V3_FACTORY = uniswapV3Factory;
@@ -88,8 +97,11 @@ contract ERC20CreatorV3 is IERC721Receiver {
         POOL_FEE = poolFee;
         FEE_COLLECTOR = feeCollector;
 
-        if (poolFee != 100 && poolFee != 3000 && poolFee != 10_000)
-            revert InvalidPoolFee();
+        int24 tickSpacing = UNISWAP_V3_FACTORY.feeAmountTickSpacing(POOL_FEE);
+        MAX_TICK = (887272 /* TickMath.MAX_TICK */ / tickSpacing) * tickSpacing;
+        MIN_TICK =
+            (-887272 /* TickMath.MIN_TICK */ / tickSpacing) *
+            tickSpacing;
     }
 
     /// @notice Creates a new ERC20 token, LPs it in a locked full range Uniswap V3 position, and distributes some of the new token to party members.
@@ -124,7 +136,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
             address(
                 new GovernableERC20{
                     salt: keccak256(
-                        abi.encode(blockhash(block.number), msg.sender)
+                        abi.encode(blockhash(block.number - 1), msg.sender)
                     )
                 }(name, symbol, config.totalSupply, address(this))
             )
@@ -147,7 +159,17 @@ contract ERC20CreatorV3 is IERC721Receiver {
         // Take fee
         uint256 feeAmount = (msg.value * feeBasisPoints) / 1e4;
 
+        // The id of the LP nft
+        uint256 lpTokenId;
+
         {
+            (address token0, address token1) = WETH < address(token)
+                ? (WETH, address(token))
+                : (address(token), WETH);
+            (uint256 amount0, uint256 amount1) = WETH < address(token)
+                ? (msg.value - feeAmount, config.numTokensForLP)
+                : (config.numTokensForLP, msg.value - feeAmount);
+
             // Create and initialize pool. Reverts if pool already created.
             address pool = UNISWAP_V3_FACTORY.createPool(
                 address(token),
@@ -157,34 +179,28 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
             // Initialize pool for the derived starting price
             uint160 sqrtPriceX96 = uint160(
-                (Math.sqrt(
-                    ((msg.value - feeAmount) * 1e18) / config.numTokensForLP
-                ) * _X96) / 1e9
+                (Math.sqrt((amount1 * 1e18) / amount0) * _X96) / 1e9
             );
             IUniswapV3Pool(pool).initialize(sqrtPriceX96);
-        }
 
-        token.approve(
-            address(UNISWAP_V3_POSITION_MANAGER),
-            config.numTokensForLP
-        );
+            token.approve(
+                address(UNISWAP_V3_POSITION_MANAGER),
+                config.numTokensForLP
+            );
 
-        // The id of the LP nft
-        uint256 lpTokenId;
-        {
             // Use multicall to sweep back excess ETH
             bytes[] memory calls = new bytes[](2);
             calls[0] = abi.encodeCall(
                 UNISWAP_V3_POSITION_MANAGER.mint,
                 (
                     INonfungiblePositionManager.MintParams({
-                        token0: address(token),
-                        token1: WETH,
+                        token0: token0,
+                        token1: token1,
                         fee: POOL_FEE,
-                        tickLower: int24(POOL_FEE == 3_000 ? -887220 : -887200),
-                        tickUpper: int24(POOL_FEE == 3_000 ? 887220 : 887200),
-                        amount0Desired: config.numTokensForLP,
-                        amount1Desired: msg.value - feeAmount,
+                        tickLower: MIN_TICK,
+                        tickUpper: MAX_TICK,
+                        amount0Desired: amount0,
+                        amount1Desired: amount1,
                         amount0Min: 0,
                         amount1Min: 0,
                         recipient: address(this),
@@ -207,6 +223,16 @@ contract ERC20CreatorV3 is IERC721Receiver {
             token.transfer(tokenRecipientAddress, config.numTokensForRecipient);
         }
 
+        // Refund any remaining dust of the token to the party
+        {
+            uint256 remainingTokenBalance = token.balanceOf(address(this));
+            if (remainingTokenBalance > 0) {
+                // Adjust the numTokensForLP to reflect the actual amount used
+                config.numTokensForLP -= remainingTokenBalance;
+                token.transfer(party, remainingTokenBalance);
+            }
+        }
+
         // Transfer fee
         if (feeAmount > 0) {
             feeRecipient.call{value: feeAmount, gas: 100_000}("");
@@ -214,14 +240,11 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
         // Transfer remaining ETH to the party
         if (address(this).balance > 0) {
-            payable(party).call{value: address(this).balance}("");
+            payable(party).call{value: address(this).balance, gas: 100_000}("");
         }
 
-        PositionData memory positionData = PositionData({
-            party: Party(payable(party)),
-            recipients: new FeeRecipient[](1)
-        });
-        positionData.recipients[0] = FeeRecipient({
+        FeeRecipient[] memory recipients = new FeeRecipient[](1);
+        recipients[0] = FeeRecipient({
             recipient: payable(party),
             percentageBps: 10_000
         });
@@ -231,12 +254,12 @@ contract ERC20CreatorV3 is IERC721Receiver {
             address(this),
             FEE_COLLECTOR,
             lpTokenId,
-            abi.encode(positionData)
+            abi.encode(recipients)
         );
 
         emit ERC20Created(
             address(token),
-            msg.sender,
+            party,
             tokenRecipientAddress,
             name,
             symbol,
@@ -253,22 +276,23 @@ contract ERC20CreatorV3 is IERC721Receiver {
     }
 
     /// @notice Sets the fee recipient for ETH split on LP creation
-    function setFeeRecipient(address _feeRecipient) external {
+    function setFeeRecipient(address feeRecipient_) external {
         address oldFeeRecipient = feeRecipient;
 
         if (msg.sender != oldFeeRecipient) revert OnlyFeeRecipient();
-        feeRecipient = _feeRecipient;
+        feeRecipient = feeRecipient_;
 
-        emit FeeRecipientUpdated(oldFeeRecipient, _feeRecipient);
+        emit FeeRecipientUpdated(oldFeeRecipient, feeRecipient_);
     }
 
     /// @notice Sets the fee basis points for ETH split on LP creation
-    /// @param _feeBasisPoints The new fee basis points in basis points
-    function setFeeBasisPoints(uint16 _feeBasisPoints) external {
+    /// @param feeBasisPoints_ The new fee basis points in basis points
+    function setFeeBasisPoints(uint16 feeBasisPoints_) external {
         if (msg.sender != feeRecipient) revert OnlyFeeRecipient();
-        emit FeeBasisPointsUpdated(feeBasisPoints, _feeBasisPoints);
+        if (feeBasisPoints_ > 5e3) revert InvalidFeeBasisPoints();
+        emit FeeBasisPointsUpdated(feeBasisPoints, feeBasisPoints_);
 
-        feeBasisPoints = _feeBasisPoints;
+        feeBasisPoints = feeBasisPoints_;
     }
 
     /// @notice Allow contract to receive refund from position manager

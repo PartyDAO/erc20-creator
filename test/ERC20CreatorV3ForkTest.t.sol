@@ -11,31 +11,30 @@ import {MockParty} from "./mock/MockParty.t.sol";
 import {FeeCollector} from "src/FeeCollector.sol";
 import {IWETH} from "v2-periphery/interfaces/IWETH.sol";
 
-contract ERC20CreatorV3Test is Test {
+contract ERC20CreatorV3ForkTest is Test {
     ERC20CreatorV3 public creator;
 
     ITokenDistributor public tokenDistributor;
     address public weth;
 
     Party public party;
-    address public feeRecipient;
     uint16 public feeBasisPoints;
-    PositionData public positionParams;
     FeeCollector public feeCollector;
+    INonfungiblePositionManager public positionManager;
+    address payable public partyDao;
 
     function setUp() public {
         tokenDistributor = ITokenDistributor(
             0xf0560F963538017CAA5081D96f839FE5D265acCB
         );
 
-        INonfungiblePositionManager positionManager = INonfungiblePositionManager(
-                0x1238536071E1c677A632429e3655c799b22cDA52
-            );
+        positionManager = INonfungiblePositionManager(
+            0x1238536071E1c677A632429e3655c799b22cDA52
+        );
         weth = positionManager.WETH9();
+        Vm.Wallet memory partyWallet = vm.createWallet("PartyDao");
+        partyDao = payable(partyWallet.addr);
 
-        feeRecipient = vm.addr(1);
-        vm.deal(feeRecipient, 0);
-        vm.label(feeRecipient, "feeRecipient");
         feeBasisPoints = 100;
 
         party = Party(payable(address(new MockParty())));
@@ -43,20 +42,9 @@ contract ERC20CreatorV3Test is Test {
 
         feeCollector = new FeeCollector(
             positionManager,
-            payable(address(0)),
+            partyDao,
             100,
             IWETH(address(weth))
-        );
-
-        creator = new ERC20CreatorV3(
-            tokenDistributor,
-            positionManager,
-            IUniswapV3Factory(0x0227628f3F023bb0B980b67D528571c95c6DaC1c),
-            address(feeCollector),
-            positionManager.WETH9(),
-            feeRecipient,
-            feeBasisPoints,
-            10_000
         );
     }
 
@@ -73,7 +61,18 @@ contract ERC20CreatorV3Test is Test {
     }
 
     function forked_createToken_xPercentFee(uint16 poolFee) internal {
-        address receiver = vm.addr(2);
+        creator = new ERC20CreatorV3(
+            tokenDistributor,
+            positionManager,
+            IUniswapV3Factory(0x0227628f3F023bb0B980b67D528571c95c6DaC1c),
+            address(feeCollector),
+            positionManager.WETH9(),
+            partyDao,
+            feeBasisPoints,
+            poolFee
+        );
+
+        address receiver = vm.createWallet("Receiver").addr;
         uint256 eth = 10 ether;
         uint256 fee = (eth * feeBasisPoints) / 1e4;
 
@@ -112,7 +111,7 @@ contract ERC20CreatorV3Test is Test {
             eth - fee,
             0.001 ether /* 0.1% tolerance */
         );
-        assertEq(feeRecipient.balance, fee);
+        assertEq(partyDao.balance, fee);
         assertEq(token.balanceOf(receiver), numTokensForRecipient);
         assertEq(
             token.balanceOf(address(tokenDistributor)),
