@@ -83,6 +83,7 @@ contract FeeCollectorForkedTest is Test {
         token = IERC20(
             creator.createToken{value: 10e18}(
                 address(party),
+                address(party),
                 "My Test Token",
                 "MTT",
                 tokenConfig,

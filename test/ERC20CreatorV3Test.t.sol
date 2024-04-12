@@ -104,6 +104,7 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
         IERC20 token = IERC20(
             creator.createToken{value: ethForLp}(
                 address(party),
+                address(party),
                 "My Test Token",
                 "MTT",
                 tokenConfig,
