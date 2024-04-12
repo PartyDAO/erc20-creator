@@ -6,7 +6,7 @@ import {MockUniswapV3Deployer, MockUniswapNonfungiblePositionManager} from "./mo
 import {MockTokenDistributor} from "./mock/MockTokenDistributor.t.sol";
 import {MockParty} from "./mock/MockParty.t.sol";
 import {ERC20CreatorV3, IERC20} from "src/ERC20CreatorV3.sol";
-import {FeeCollector, FeeRecipient, IWETH} from "../src/FeeCollector.sol";
+import {FeeCollector, FeeRecipient, TokenFeeInfo, IWETH} from "../src/FeeCollector.sol";
 import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import {ITokenDistributor} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {IUniswapV3Factory} from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
@@ -51,7 +51,7 @@ contract FeeCollectorForkedTest is Test {
         );
         party = Party(payable(address(new MockParty())));
         partyDao = payable(vm.createWallet("PartyDAO").addr);
-        feeCollector = new FeeCollector(positionManager, partyDao, 100, weth);
+        feeCollector = new FeeCollector(positionManager, partyDao, weth);
         swapRouter = ISwapRouter(0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E);
         creator = new ERC20CreatorV3(
             distributor,
@@ -151,8 +151,8 @@ contract FeeCollectorForkedTest is Test {
         assertGt(tokenAmount, 0);
 
         // Check PartyDAO fee deduction
-        uint256 expectedPartyDaoFee = (ethAmount *
-            feeCollector.partyDaoFeeBps()) / 1e4;
+        uint16 partyDaoFeeBps = feeCollector.getPartyDaoFeeBps(tokenId);
+        uint256 expectedPartyDaoFee = (ethAmount * partyDaoFeeBps) / 1e4;
         uint256 expectedRemainingEth = ethAmount - expectedPartyDaoFee;
         assertEq(
             address(feeCollector.PARTY_DAO()).balance,

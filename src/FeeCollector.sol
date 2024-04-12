@@ -13,15 +13,17 @@ struct FeeRecipient {
     uint16 percentageBps;
 }
 
+struct TokenFeeInfo {
+    uint16 partyDaoFeeBps;
+    FeeRecipient[] recipients;
+}
+
 contract FeeCollector is IERC721Receiver {
     INonfungiblePositionManager public immutable POSITION_MANAGER;
     address payable public immutable PARTY_DAO;
     IWETH public immutable WETH;
 
-    uint16 public partyDaoFeeBps;
-
-    mapping(uint256 tokenId => FeeRecipient[] recipients)
-        private _feeRecipients;
+    mapping(uint256 => TokenFeeInfo) private _tokenIdToFeeInfo;
 
     error InvalidLPPosition();
     error OnlyPartyDAO();
@@ -35,18 +37,20 @@ contract FeeCollector is IERC721Receiver {
         uint256 partyDaoFee,
         FeeRecipient[] recipients
     );
-    event PartyDaoFeeBpsUpdated(uint16 oldFeeBps, uint16 newFeeBps);
+    event PartyDaoFeeBpsUpdated(
+        uint256 tokenId,
+        uint16 oldFeeBps,
+        uint16 newFeeBps
+    );
 
     constructor(
         INonfungiblePositionManager _positionManager,
         address payable _partyDao,
-        uint16 _partyDaoFeeBps,
         IWETH _weth
     ) {
         POSITION_MANAGER = _positionManager;
         PARTY_DAO = _partyDao;
         WETH = _weth;
-        partyDaoFeeBps = _partyDaoFeeBps;
     }
 
     function collectAndDistributeFees(
@@ -95,10 +99,12 @@ contract FeeCollector is IERC721Receiver {
         }
 
         // Take PartyDAO fee on ETH from the LP position
-        uint256 partyDaoFee = (ethAmount * partyDaoFeeBps) / 1e4;
+        uint256 partyDaoFee = (ethAmount *
+            _tokenIdToFeeInfo[tokenId].partyDaoFeeBps) / 1e4;
         PARTY_DAO.call{value: partyDaoFee, gas: 100_000}("");
 
-        FeeRecipient[] memory recipients = _feeRecipients[tokenId];
+        FeeRecipient[] memory recipients = _tokenIdToFeeInfo[tokenId]
+            .recipients;
 
         // Distribute the ETH and tokens to recipients
         uint256 remainingEthFees = ethAmount - partyDaoFee;
@@ -130,16 +136,27 @@ contract FeeCollector is IERC721Receiver {
         );
     }
 
-    function setPartyDaoFeeBps(uint16 _partyDaoFeeBps) external {
+    function setPartyDaoFeeBps(
+        uint256 tokenId,
+        uint16 _partyDaoFeeBps
+    ) external {
         if (msg.sender != PARTY_DAO) revert OnlyPartyDAO();
-        emit PartyDaoFeeBpsUpdated(partyDaoFeeBps, _partyDaoFeeBps);
-        partyDaoFeeBps = _partyDaoFeeBps;
+        emit PartyDaoFeeBpsUpdated(
+            tokenId,
+            _tokenIdToFeeInfo[tokenId].partyDaoFeeBps,
+            _partyDaoFeeBps
+        );
+        _tokenIdToFeeInfo[tokenId].partyDaoFeeBps = _partyDaoFeeBps;
     }
 
     function getFeeRecipients(
         uint256 tokenId
     ) external view returns (FeeRecipient[] memory) {
-        return _feeRecipients[tokenId];
+        return _tokenIdToFeeInfo[tokenId].recipients;
+    }
+
+    function getPartyDaoFeeBps(uint256 tokenId) external view returns (uint16) {
+        return _tokenIdToFeeInfo[tokenId].partyDaoFeeBps;
     }
 
     function onERC721Received(
@@ -152,7 +169,8 @@ contract FeeCollector is IERC721Receiver {
             revert OnlyV3PositionManager();
 
         FeeRecipient[] memory _recipients = abi.decode(data, (FeeRecipient[]));
-        FeeRecipient[] storage recipients = _feeRecipients[tokenId];
+        FeeRecipient[] storage recipients = _tokenIdToFeeInfo[tokenId]
+            .recipients;
 
         uint256 totalPercentageBps;
         for (uint256 i = 0; i < _recipients.length; i++) {

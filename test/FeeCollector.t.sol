@@ -6,7 +6,7 @@ import {MockUniswapV3Deployer, MockUniswapNonfungiblePositionManager} from "./mo
 import {MockTokenDistributor} from "./mock/MockTokenDistributor.t.sol";
 import {MockParty} from "./mock/MockParty.t.sol";
 import {ERC20CreatorV3, IERC20} from "src/ERC20CreatorV3.sol";
-import {FeeCollector, FeeRecipient, IWETH} from "../src/FeeCollector.sol";
+import {FeeCollector, FeeRecipient, TokenFeeInfo, IWETH} from "../src/FeeCollector.sol";
 import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import {ITokenDistributor} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import {IUniswapV3Factory} from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
@@ -30,7 +30,6 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         feeCollector = new FeeCollector(
             positionManager,
             partyDao,
-            100,
             IWETH(uniswap.WETH)
         );
         creator = new ERC20CreatorV3(
@@ -73,11 +72,14 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         ).lastTokenId();
     }
 
-    function testCollectAndDistributeFees() public {
+    function testCollectAndDistributeFees()
+        public
+        returns (IERC20 token, uint256 tokenId)
+    {
         FeeRecipient[] memory recipients = new FeeRecipient[](1);
         recipients[0] = FeeRecipient(payable(address(party)), 1e4);
 
-        (IERC20 token, uint256 tokenId) = _setUpTokenAndPool();
+        (token, tokenId) = _setUpTokenAndPool();
 
         FeeRecipient[] memory storedRecipients = feeCollector.getFeeRecipients(
             tokenId
@@ -101,8 +103,8 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         assertEq(tokenAmount, 1000e18);
 
         // Check PartyDAO fee deduction
-        uint256 expectedPartyDaoFee = (ethAmount *
-            feeCollector.partyDaoFeeBps()) / 1e4;
+        uint16 partyDaoFeeBps = feeCollector.getPartyDaoFeeBps(tokenId);
+        uint256 expectedPartyDaoFee = (ethAmount * partyDaoFeeBps) / 1e4;
         uint256 expectedRemainingEth = ethAmount - expectedPartyDaoFee;
         assertEq(partyDao.balance - partyDaoBalanceBefore, expectedPartyDaoFee);
 
@@ -115,10 +117,12 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
     }
 
     function testSetPartyDaoFeeBps() public {
+        (, uint256 tokenId) = _setUpTokenAndPool();
+
         uint16 newFeeBps = 500; // 5%
         vm.prank(address(feeCollector.PARTY_DAO()));
-        feeCollector.setPartyDaoFeeBps(newFeeBps);
-        assertEq(feeCollector.partyDaoFeeBps(), newFeeBps);
+        feeCollector.setPartyDaoFeeBps(tokenId, newFeeBps);
+        assertEq(feeCollector.getPartyDaoFeeBps(tokenId), newFeeBps);
     }
 
     function testSetPartyDaoFeeBpsRevertNotPartyDAO() public {
@@ -126,6 +130,6 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         vm.expectRevert(
             abi.encodeWithSelector(FeeCollector.OnlyPartyDAO.selector)
         );
-        feeCollector.setPartyDaoFeeBps(newFeeBps);
+        feeCollector.setPartyDaoFeeBps(0, newFeeBps);
     }
 }
