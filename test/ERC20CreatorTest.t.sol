@@ -5,35 +5,9 @@ import "forge-std/Test.sol";
 
 import "../src/ERC20Creator.sol";
 import {ERC20Votes} from "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import {MockParty} from "./mock/MockParty.t.sol";
 
 // MUST run with --fork $SEPOLIA_RPC_URL --evm-version shanghai
-
-contract MockParty {
-    struct GovernanceValues {
-        uint40 voteDuration;
-        uint40 executionDelay;
-        uint16 passThresholdBps;
-        uint96 totalVotingPower;
-    }
-
-    function getGovernanceValues()
-        external
-        pure
-        returns (GovernanceValues memory)
-    {
-        return
-            GovernanceValues({
-                voteDuration: 1 days,
-                executionDelay: 1 days,
-                passThresholdBps: 5000,
-                totalVotingPower: 1e18
-            });
-    }
-
-    function tokenCount() external pure returns (uint256) {
-        return 100;
-    }
-}
 
 contract ERC20CreatorTest is Test {
     ERC20Creator creator;
