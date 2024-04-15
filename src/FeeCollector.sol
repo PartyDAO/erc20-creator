@@ -23,6 +23,7 @@ contract FeeCollector is IERC721Receiver {
     address payable public immutable PARTY_DAO;
     IWETH public immutable WETH;
 
+    uint16 public globalPartyDaoFeeBps;
     mapping(uint256 => TokenFeeInfo) private _tokenIdToFeeInfo;
 
     error InvalidLPPosition();
@@ -38,20 +39,18 @@ contract FeeCollector is IERC721Receiver {
         uint256 partyDaoFee,
         FeeRecipient[] recipients
     );
-    event PartyDaoFeeBpsUpdated(
-        uint256 tokenId,
-        uint16 oldFeeBps,
-        uint16 newFeeBps
-    );
+    event GlobalPartyDaoFeeBpsUpdated(uint16 oldFeeBps, uint16 newFeeBps);
 
     constructor(
         INonfungiblePositionManager _positionManager,
         address payable _partyDao,
-        IWETH _weth
+        IWETH _weth,
+        uint16 _partyDaoFeeBps
     ) {
         POSITION_MANAGER = _positionManager;
         PARTY_DAO = _partyDao;
         WETH = _weth;
+        globalPartyDaoFeeBps = _partyDaoFeeBps;
     }
 
     function collectAndDistributeFees(
@@ -137,33 +136,11 @@ contract FeeCollector is IERC721Receiver {
         );
     }
 
-    function setPartyDaoFeeBps(
-        uint256 tokenId,
-        uint16 partyDaoFeeBps
-    ) external {
-        uint256[] memory tokenIds = new uint256[](1);
-        tokenIds[0] = tokenId;
-        uint16[] memory feeBps = new uint16[](1);
-        feeBps[0] = partyDaoFeeBps;
-        batchSetPartyDaoFeeBps(tokenIds, feeBps);
-    }
-
-    function batchSetPartyDaoFeeBps(
-        uint256[] memory tokenIds,
-        uint16[] memory partyDaoFeeBps
-    ) public {
+    function setGlobalPartyDaoFeeBps(uint16 newFeeBps) external {
         if (msg.sender != PARTY_DAO) revert OnlyPartyDAO();
-        if (tokenIds.length != partyDaoFeeBps.length) revert ArityMismatch();
-
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            uint256 tokenId = tokenIds[i];
-            emit PartyDaoFeeBpsUpdated(
-                tokenId,
-                _tokenIdToFeeInfo[tokenId].partyDaoFeeBps,
-                partyDaoFeeBps[i]
-            );
-            _tokenIdToFeeInfo[tokenId].partyDaoFeeBps = partyDaoFeeBps[i];
-        }
+        if (newFeeBps > 1e4) revert InvalidPercentageBps();
+        emit GlobalPartyDaoFeeBpsUpdated(globalPartyDaoFeeBps, newFeeBps);
+        globalPartyDaoFeeBps = newFeeBps;
     }
 
     function getFeeRecipients(
@@ -185,14 +162,11 @@ contract FeeCollector is IERC721Receiver {
         if (msg.sender != address(POSITION_MANAGER))
             revert OnlyV3PositionManager();
 
-        (FeeRecipient[] memory _recipients, uint16 _partyDaoFeeBps) = abi
-            .decode(data, (FeeRecipient[], uint16));
+        FeeRecipient[] memory _recipients = abi.decode(data, (FeeRecipient[]));
         FeeRecipient[] storage recipients = _tokenIdToFeeInfo[tokenId]
             .recipients;
 
-        if (_partyDaoFeeBps > 1e4) revert InvalidPercentageBps();
-
-        _tokenIdToFeeInfo[tokenId].partyDaoFeeBps = _partyDaoFeeBps;
+        _tokenIdToFeeInfo[tokenId].partyDaoFeeBps = globalPartyDaoFeeBps;
 
         uint256 totalPercentageBps;
         for (uint256 i = 0; i < _recipients.length; i++) {

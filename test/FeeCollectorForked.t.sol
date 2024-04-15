@@ -51,7 +51,7 @@ contract FeeCollectorForkedTest is Test {
         );
         party = Party(payable(address(new MockParty())));
         partyDao = payable(vm.createWallet("PartyDAO").addr);
-        feeCollector = new FeeCollector(positionManager, partyDao, weth);
+        feeCollector = new FeeCollector(positionManager, partyDao, weth, 5_000);
         swapRouter = ISwapRouter(0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E);
         creator = new ERC20CreatorV3(
             distributor,
@@ -86,8 +86,7 @@ contract FeeCollectorForkedTest is Test {
                 "My Test Token",
                 "MTT",
                 tokenConfig,
-                address(0),
-                5_000
+                address(0)
             )
         );
         Vm.Log[] memory logs = vm.getRecordedLogs();

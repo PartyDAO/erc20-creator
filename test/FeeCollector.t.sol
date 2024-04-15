@@ -30,7 +30,8 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         feeCollector = new FeeCollector(
             positionManager,
             partyDao,
-            IWETH(uniswap.WETH)
+            IWETH(uniswap.WETH),
+            5_000
         );
         creator = new ERC20CreatorV3(
             distributor,
@@ -64,8 +65,7 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
                 "My Test Token",
                 "MTT",
                 tokenConfig,
-                address(this),
-                5_000
+                address(this)
             )
         );
         tokenId = MockUniswapNonfungiblePositionManager(
@@ -123,20 +123,21 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         }
     }
 
-    function testSetPartyDaoFeeBps() public {
-        (, uint256 tokenId) = _setUpTokenAndPool();
-
+    function testSetGlobalPartyDaoFeeBps() public {
         uint16 newFeeBps = 500; // 5%
         vm.prank(address(feeCollector.PARTY_DAO()));
-        feeCollector.setPartyDaoFeeBps(tokenId, newFeeBps);
+        feeCollector.setGlobalPartyDaoFeeBps(newFeeBps);
+        assertEq(feeCollector.globalPartyDaoFeeBps(), newFeeBps);
+
+        (, uint256 tokenId) = _setUpTokenAndPool();
         assertEq(feeCollector.getPartyDaoFeeBps(tokenId), newFeeBps);
     }
 
-    function testSetPartyDaoFeeBpsRevertNotPartyDAO() public {
+    function testSetGlobalPartyDaoFeeBpsRevertNotPartyDAO() public {
         uint16 newFeeBps = 500; // 5%
         vm.expectRevert(
             abi.encodeWithSelector(FeeCollector.OnlyPartyDAO.selector)
         );
-        feeCollector.setPartyDaoFeeBps(0, newFeeBps);
+        feeCollector.setGlobalPartyDaoFeeBps(newFeeBps);
     }
 }

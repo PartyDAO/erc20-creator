@@ -39,7 +39,8 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
         feeCollector = new FeeCollector(
             INonfungiblePositionManager(uniswap.POSITION_MANAGER),
             payable(this),
-            IWETH(uniswap.WETH)
+            IWETH(uniswap.WETH),
+            5_000
         );
 
         creator = new ERC20CreatorV3(
@@ -106,8 +107,7 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
                 "My Test Token",
                 "MTT",
                 tokenConfig,
-                address(this),
-                5_000
+                address(this)
             )
         );
 
