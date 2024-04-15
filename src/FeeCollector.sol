@@ -29,6 +29,7 @@ contract FeeCollector is IERC721Receiver {
     error OnlyPartyDAO();
     error OnlyV3PositionManager();
     error InvalidPercentageBps();
+    error ArityMismatch();
 
     event FeesCollectedAndDistributed(
         uint256 tokenId,
@@ -138,15 +139,31 @@ contract FeeCollector is IERC721Receiver {
 
     function setPartyDaoFeeBps(
         uint256 tokenId,
-        uint16 _partyDaoFeeBps
+        uint16 partyDaoFeeBps
     ) external {
+        uint256[] memory tokenIds = new uint256[](1);
+        tokenIds[0] = tokenId;
+        uint16[] memory feeBps = new uint16[](1);
+        feeBps[0] = partyDaoFeeBps;
+        batchSetPartyDaoFeeBps(tokenIds, feeBps);
+    }
+
+    function batchSetPartyDaoFeeBps(
+        uint256[] memory tokenIds,
+        uint16[] memory partyDaoFeeBps
+    ) public {
         if (msg.sender != PARTY_DAO) revert OnlyPartyDAO();
-        emit PartyDaoFeeBpsUpdated(
-            tokenId,
-            _tokenIdToFeeInfo[tokenId].partyDaoFeeBps,
-            _partyDaoFeeBps
-        );
-        _tokenIdToFeeInfo[tokenId].partyDaoFeeBps = _partyDaoFeeBps;
+        if (tokenIds.length != partyDaoFeeBps.length) revert ArityMismatch();
+
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            uint256 tokenId = tokenIds[i];
+            emit PartyDaoFeeBpsUpdated(
+                tokenId,
+                _tokenIdToFeeInfo[tokenId].partyDaoFeeBps,
+                partyDaoFeeBps[i]
+            );
+            _tokenIdToFeeInfo[tokenId].partyDaoFeeBps = partyDaoFeeBps[i];
+        }
     }
 
     function getFeeRecipients(
