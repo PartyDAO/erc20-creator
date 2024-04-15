@@ -106,7 +106,8 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
                 "My Test Token",
                 "MTT",
                 tokenConfig,
-                address(this)
+                address(this),
+                5_000
             )
         );
 

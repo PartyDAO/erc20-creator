@@ -111,13 +111,15 @@ contract ERC20CreatorV3 is IERC721Receiver {
     /// @param symbol The symbol of the new token
     /// @param config Token distribution configuration. See above for additional information.
     /// @param tokenRecipientAddress The address to receive the tokens allocated for the token recipient
+    /// @param partyDaoFeeBps The fee basis points for PartyDAO upon fee collection
     /// @return token The address of the newly created token
     function createToken(
         address party,
         string memory name,
         string memory symbol,
         TokenDistributionConfiguration memory config,
-        address tokenRecipientAddress
+        address tokenRecipientAddress,
+        uint16 partyDaoFeeBps
     ) external payable returns (address) {
         // Require that tokens are fully distributed
         if (
@@ -254,7 +256,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
             address(this),
             FEE_COLLECTOR,
             lpTokenId,
-            abi.encode(recipients)
+            abi.encode(recipients, partyDaoFeeBps)
         );
 
         emit ERC20Created(

@@ -94,7 +94,8 @@ contract ERC20CreatorV3ForkTest is Test {
                         numTokensForRecipient: numTokensForRecipient,
                         numTokensForLP: numTokensForLP
                     }),
-                    receiver
+                    receiver,
+                    5_000
                 )
             )
         );

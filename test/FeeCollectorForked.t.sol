@@ -86,7 +86,8 @@ contract FeeCollectorForkedTest is Test {
                 "My Test Token",
                 "MTT",
                 tokenConfig,
-                address(0)
+                address(0),
+                5_000
             )
         );
         Vm.Log[] memory logs = vm.getRecordedLogs();

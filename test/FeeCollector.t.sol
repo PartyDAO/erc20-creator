@@ -64,7 +64,8 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
                 "My Test Token",
                 "MTT",
                 tokenConfig,
-                address(this)
+                address(this),
+                5_000
             )
         );
         tokenId = MockUniswapNonfungiblePositionManager(
@@ -104,16 +105,22 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
 
         // Check PartyDAO fee deduction
         uint16 partyDaoFeeBps = feeCollector.getPartyDaoFeeBps(tokenId);
+        assertEq(partyDaoFeeBps, 5_000);
         uint256 expectedPartyDaoFee = (ethAmount * partyDaoFeeBps) / 1e4;
         uint256 expectedRemainingEth = ethAmount - expectedPartyDaoFee;
         assertEq(partyDao.balance - partyDaoBalanceBefore, expectedPartyDaoFee);
 
-        // TODO: Fix assertion
-        // assertEq(
-        //     address(recipients[i].recipient).balance,
-        //     expectedRemainingEth
-        // );
-        // assertEq(token.balanceOf(recipients[i].recipient), tokenAmount);
+        for (uint256 i = 0; i < recipients.length; i++) {
+            uint256 expectedRecipientEth = (expectedRemainingEth *
+                recipients[i].percentageBps) / 1e4;
+
+            assertEq(
+                address(recipients[i].recipient).balance,
+                expectedRecipientEth
+            );
+
+            assertEq(token.balanceOf(recipients[i].recipient), tokenAmount);
+        }
     }
 
     function testSetPartyDaoFeeBps() public {

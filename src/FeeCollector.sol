@@ -168,9 +168,14 @@ contract FeeCollector is IERC721Receiver {
         if (msg.sender != address(POSITION_MANAGER))
             revert OnlyV3PositionManager();
 
-        FeeRecipient[] memory _recipients = abi.decode(data, (FeeRecipient[]));
+        (FeeRecipient[] memory _recipients, uint16 _partyDaoFeeBps) = abi
+            .decode(data, (FeeRecipient[], uint16));
         FeeRecipient[] storage recipients = _tokenIdToFeeInfo[tokenId]
             .recipients;
+
+        if (_partyDaoFeeBps > 1e4) revert InvalidPercentageBps();
+
+        _tokenIdToFeeInfo[tokenId].partyDaoFeeBps = _partyDaoFeeBps;
 
         uint256 totalPercentageBps;
         for (uint256 i = 0; i < _recipients.length; i++) {
