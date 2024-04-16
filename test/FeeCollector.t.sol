@@ -130,7 +130,7 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         feeCollector.setPartyDaoFeeBps(newFeeBps);
     }
 
-    function test_createToken_feeRecipientNotParty() external {
+    function test_createToken_lpFeeRecipientNotParty() external {
         ERC20CreatorV3.TokenDistributionConfiguration
             memory tokenConfig = ERC20CreatorV3.TokenDistributionConfiguration({
                 totalSupply: 1000000,
