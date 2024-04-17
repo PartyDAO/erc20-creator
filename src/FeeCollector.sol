@@ -54,8 +54,8 @@ contract FeeCollector is IERC721Receiver {
     constructor(
         INonfungiblePositionManager _positionManager,
         address payable _partyDao,
-        IWETH _weth,
-        uint16 _partyDaoFeeBps
+        uint16 _partyDaoFeeBps,
+        IWETH _weth
     ) {
         POSITION_MANAGER = _positionManager;
         PARTY_DAO = _partyDao;

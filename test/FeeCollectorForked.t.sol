@@ -51,7 +51,7 @@ contract FeeCollectorForkedTest is Test {
         );
         party = Party(payable(address(new MockParty())));
         partyDao = payable(vm.createWallet("PartyDAO").addr);
-        feeCollector = new FeeCollector(positionManager, partyDao, weth, 5_000);
+        feeCollector = new FeeCollector(positionManager, partyDao, 5_000, weth);
         swapRouter = ISwapRouter(0x3bFA4769FB09eefC5a80d6E87c3B9C650f7Ae48E);
         creator = new ERC20CreatorV3(
             distributor,

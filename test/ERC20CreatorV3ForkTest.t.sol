@@ -43,8 +43,8 @@ contract ERC20CreatorV3ForkTest is Test {
         feeCollector = new FeeCollector(
             positionManager,
             partyDao,
-            IWETH(address(weth)),
-            5_000
+            5_000,
+            IWETH(address(weth))
         );
     }
 

@@ -30,8 +30,8 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         feeCollector = new FeeCollector(
             positionManager,
             partyDao,
-            IWETH(uniswap.WETH),
-            5_000
+            5_000,
+            IWETH(uniswap.WETH)
         );
         creator = new ERC20CreatorV3(
             distributor,
