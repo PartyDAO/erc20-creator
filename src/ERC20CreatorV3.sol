@@ -309,4 +309,12 @@ contract ERC20CreatorV3 is IERC721Receiver {
     ) external pure returns (bytes4) {
         return IERC721Receiver.onERC721Received.selector;
     }
+
+    /**
+     * @dev Returns the version of the contract. Decimal versions indicate change in logic. Number change indicates
+     * change in ABI.
+     */
+    function VERSION() external pure returns (string memory) {
+        return "1.0.0";
+    }
 }

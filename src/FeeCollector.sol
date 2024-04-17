@@ -166,4 +166,12 @@ contract FeeCollector is IERC721Receiver {
     }
 
     receive() external payable {}
+
+    /**
+     * @dev Returns the version of the contract. Decimal versions indicate change in logic. Number change indicates
+     * change in ABI.
+     */
+    function VERSION() external pure returns (string memory) {
+        return "1.0.0";
+    }
 }
