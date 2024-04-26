@@ -106,7 +106,8 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
     /// @notice Creates a new ERC20 token, LPs it in a locked full range Uniswap V3 position, and distributes some of the new token to party members.
     /// @dev The party is assumed to be `msg.sender`
-    /// @param party The party to allocate this token to
+    /// @param party The party to allocate the token distribution to
+    /// @param lpFeeRecipient The address to receive the LP fee
     /// @param name The name of the new token
     /// @param symbol The symbol of the new token
     /// @param config Token distribution configuration. See above for additional information.
@@ -114,6 +115,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
     /// @return token The address of the newly created token
     function createToken(
         address party,
+        address lpFeeRecipient,
         string memory name,
         string memory symbol,
         TokenDistributionConfiguration memory config,
@@ -245,7 +247,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
         FeeRecipient[] memory recipients = new FeeRecipient[](1);
         recipients[0] = FeeRecipient({
-            recipient: payable(party),
+            recipient: payable(lpFeeRecipient),
             percentageBps: 10_000
         });
 

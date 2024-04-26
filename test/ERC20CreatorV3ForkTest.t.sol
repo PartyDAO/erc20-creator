@@ -87,6 +87,7 @@ contract ERC20CreatorV3ForkTest is Test {
             address(
                 creator.createToken{value: eth}(
                     address(party),
+                    address(party),
                     "Leet H4x0rs",
                     "1337",
                     ERC20CreatorV3.TokenDistributionConfiguration({

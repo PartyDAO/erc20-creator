@@ -57,7 +57,8 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
 
     function testCreatorV3_createToken(
         ERC20CreatorV3.TokenDistributionConfiguration memory tokenConfig,
-        uint256 ethForLp
+        uint256 ethForLp,
+        address feeRecipient
     ) public {
         tokenConfig.numTokensForDistribution = bound(
             tokenConfig.numTokensForDistribution,
@@ -104,6 +105,7 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
         IERC20 token = IERC20(
             creator.createToken{value: ethForLp}(
                 address(party),
+                feeRecipient,
                 "My Test Token",
                 "MTT",
                 tokenConfig,
@@ -139,7 +141,7 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
         assertEq(
             abi.encode(feeRecipients[0]),
             abi.encode(
-                FeeRecipient({recipient: address(party), percentageBps: 10_000})
+                FeeRecipient({recipient: feeRecipient, percentageBps: 10_000})
             )
         );
 

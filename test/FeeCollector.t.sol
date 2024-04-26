@@ -62,6 +62,7 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         token = IERC20(
             creator.createToken{value: 10e18}(
                 address(party),
+                address(party),
                 "My Test Token",
                 "MTT",
                 tokenConfig,
@@ -127,5 +128,37 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
             abi.encodeWithSelector(FeeCollector.OnlyPartyDAO.selector)
         );
         feeCollector.setPartyDaoFeeBps(newFeeBps);
+    }
+
+    function test_createToken_lpFeeRecipientNotParty() external {
+        ERC20CreatorV3.TokenDistributionConfiguration
+            memory tokenConfig = ERC20CreatorV3.TokenDistributionConfiguration({
+                totalSupply: 1000000,
+                numTokensForDistribution: 500000,
+                numTokensForRecipient: 250000,
+                numTokensForLP: 250000
+            });
+
+        vm.deal(address(party), 10e18);
+        vm.prank(address(party));
+
+        creator.createToken{value: 10e18}(
+            address(party),
+            address(this),
+            "My Test Token",
+            "MTT",
+            tokenConfig,
+            address(this)
+        );
+        uint256 tokenId = MockUniswapNonfungiblePositionManager(
+            address(positionManager)
+        ).lastTokenId();
+
+        assertEq(feeCollector.getFeeRecipients(tokenId).length, 1);
+        assertEq(
+            feeCollector.getFeeRecipients(tokenId)[0].recipient,
+            address(this)
+        );
+        assertEq(feeCollector.getFeeRecipients(tokenId)[0].percentageBps, 1e4);
     }
 }
