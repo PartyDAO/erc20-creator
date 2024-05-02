@@ -9,11 +9,7 @@ contract MockParty {
         uint96 totalVotingPower;
     }
 
-    function getGovernanceValues()
-        external
-        pure
-        returns (GovernanceValues memory)
-    {
+    function getGovernanceValues() external pure returns (GovernanceValues memory) {
         return
             GovernanceValues({
                 voteDuration: 1 days,

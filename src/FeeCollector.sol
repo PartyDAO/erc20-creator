@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {IERC721Receiver} from "openzeppelin-contracts/contracts/interfaces/IERC721Receiver.sol";
-import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
-import {IWETH} from "../lib/v2-periphery/contracts/interfaces/IWETH.sol";
-import {Party} from "party-protocol/contracts/party/Party.sol";
-import {ITokenDistributor, IERC20} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
+import { IERC721Receiver } from "openzeppelin-contracts/contracts/interfaces/IERC721Receiver.sol";
+import { ERC20 } from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import { INonfungiblePositionManager } from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
+import { IWETH } from "../lib/v2-periphery/contracts/interfaces/IWETH.sol";
+import { Party } from "party-protocol/contracts/party/Party.sol";
+import { ITokenDistributor, IERC20 } from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 
 struct FeeRecipient {
     address recipient;
@@ -20,8 +20,7 @@ contract FeeCollector is IERC721Receiver {
 
     uint16 public partyDaoFeeBps;
 
-    mapping(uint256 tokenId => FeeRecipient[] recipients)
-        private _feeRecipients;
+    mapping(uint256 tokenId => FeeRecipient[] recipients) private _feeRecipients;
 
     error InvalidLPPosition();
     error OnlyPartyDAO();
@@ -55,23 +54,18 @@ contract FeeCollector is IERC721Receiver {
         // Collect fees from the LP position
         ERC20 token;
         {
-            INonfungiblePositionManager.CollectParams
-                memory params = INonfungiblePositionManager.CollectParams({
+            INonfungiblePositionManager.CollectParams memory params = INonfungiblePositionManager
+                .CollectParams({
                     tokenId: tokenId,
                     recipient: address(this),
                     amount0Max: type(uint128).max,
                     amount1Max: type(uint128).max
                 });
 
-            (uint256 amount0, uint256 amount1) = POSITION_MANAGER.collect(
-                params
-            );
+            (uint256 amount0, uint256 amount1) = POSITION_MANAGER.collect(params);
 
             (, bytes memory res) = address(POSITION_MANAGER).staticcall(
-                abi.encodeWithSelector(
-                    POSITION_MANAGER.positions.selector,
-                    tokenId
-                )
+                abi.encodeWithSelector(POSITION_MANAGER.positions.selector, tokenId)
             );
             (, , address token0, address token1) = abi.decode(
                 res,
@@ -96,7 +90,7 @@ contract FeeCollector is IERC721Receiver {
 
         // Take PartyDAO fee on ETH from the LP position
         uint256 partyDaoFee = (ethAmount * partyDaoFeeBps) / 1e4;
-        PARTY_DAO.call{value: partyDaoFee, gas: 100_000}("");
+        PARTY_DAO.call{ value: partyDaoFee, gas: 100_000 }("");
 
         FeeRecipient[] memory recipients = _feeRecipients[tokenId];
 
@@ -104,30 +98,19 @@ contract FeeCollector is IERC721Receiver {
         uint256 remainingEthFees = ethAmount - partyDaoFee;
         for (uint256 i = 0; i < recipients.length; i++) {
             FeeRecipient memory recipient = recipients[i];
-            uint256 recipientEthFee = (remainingEthFees *
-                recipient.percentageBps) / 1e4;
-            uint256 recipientTokenFee = (tokenAmount *
-                recipient.percentageBps) / 1e4;
+            uint256 recipientEthFee = (remainingEthFees * recipient.percentageBps) / 1e4;
+            uint256 recipientTokenFee = (tokenAmount * recipient.percentageBps) / 1e4;
 
             if (recipientTokenFee > 0) {
                 token.transfer(recipient.recipient, recipientTokenFee);
             }
 
             if (recipientEthFee > 0) {
-                payable(recipient.recipient).call{
-                    value: recipientEthFee,
-                    gas: 100_000
-                }("");
+                payable(recipient.recipient).call{ value: recipientEthFee, gas: 100_000 }("");
             }
         }
 
-        emit FeesCollectedAndDistributed(
-            tokenId,
-            ethAmount,
-            tokenAmount,
-            partyDaoFee,
-            recipients
-        );
+        emit FeesCollectedAndDistributed(tokenId, ethAmount, tokenAmount, partyDaoFee, recipients);
     }
 
     function setPartyDaoFeeBps(uint16 _partyDaoFeeBps) external {
@@ -136,9 +119,7 @@ contract FeeCollector is IERC721Receiver {
         partyDaoFeeBps = _partyDaoFeeBps;
     }
 
-    function getFeeRecipients(
-        uint256 tokenId
-    ) external view returns (FeeRecipient[] memory) {
+    function getFeeRecipients(uint256 tokenId) external view returns (FeeRecipient[] memory) {
         return _feeRecipients[tokenId];
     }
 
@@ -148,8 +129,7 @@ contract FeeCollector is IERC721Receiver {
         uint256 tokenId,
         bytes calldata data
     ) external returns (bytes4) {
-        if (msg.sender != address(POSITION_MANAGER))
-            revert OnlyV3PositionManager();
+        if (msg.sender != address(POSITION_MANAGER)) revert OnlyV3PositionManager();
 
         FeeRecipient[] memory _recipients = abi.decode(data, (FeeRecipient[]));
         FeeRecipient[] storage recipients = _feeRecipients[tokenId];
