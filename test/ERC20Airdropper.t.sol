@@ -3,6 +3,7 @@ pragma solidity ^0.8;
 
 import "forge-std/Test.sol";
 import "src/ERC20Airdropper.sol";
+import "src/vendor/Dropper.sol";
 
 contract ERC20AirdropperTest is Test {
     event ERC20Created(
@@ -11,112 +12,137 @@ contract ERC20AirdropperTest is Test {
         string symbol,
         uint256 totalSupply
     );
-    event Airdropped(
+    event DropCreated(
+        uint256 indexed dropId,
         address indexed token,
-        ERC20Airdropper.Recipient[] recipients
+        bytes32 merkleRoot,
+        uint256 totalTokens,
+        uint40 startTimestamp,
+        uint40 expirationTimestamp
     );
 
     ERC20Airdropper airdropper;
+    Dropper dropper;
 
     function setUp() public {
-        airdropper = new ERC20Airdropper();
+        dropper = new Dropper();
+        airdropper = new ERC20Airdropper(dropper);
     }
 
-    function testCreateToken() public {
-        string memory name = "Test Token";
-        string memory symbol = "TTT";
-        uint256 totalSupply = 1000e18;
+    function testCreateTokenAndAirdrop() public {
+        ERC20Airdropper.TokenArgs memory tokenArgs = ERC20Airdropper.TokenArgs({
+            name: "Test Token",
+            symbol: "TTT",
+            totalSupply: 1000e18
+        });
 
-        ERC20Airdropper.Recipient[]
-            memory recipients = new ERC20Airdropper.Recipient[](3);
-        recipients[0] = ERC20Airdropper.Recipient(vm.addr(1), 100e18);
-        recipients[1] = ERC20Airdropper.Recipient(vm.addr(2), 200e18);
-        recipients[2] = ERC20Airdropper.Recipient(vm.addr(3), 300e18);
+        bytes32 merkleRoot = keccak256(abi.encode(vm.addr(1), 100e18));
+        ERC20Airdropper.DropArgs memory dropArgs = ERC20Airdropper.DropArgs({
+            merkleRoot: merkleRoot,
+            totalTokens: 600e18,
+            startTimestamp: uint40(block.timestamp),
+            expirationTimestamp: uint40(block.timestamp + 1 days),
+            expirationRecipient: address(this),
+            merkleTreeURI: "ipfs://merkle-tree",
+            dropDescription: "Test Airdrop"
+        });
 
         address expectedToken = vm.computeCreateAddress(address(airdropper), 1);
         vm.expectEmit(true, true, true, true);
-        emit ERC20Created(expectedToken, name, symbol, totalSupply);
+        emit ERC20Created(
+            expectedToken,
+            tokenArgs.name,
+            tokenArgs.symbol,
+            tokenArgs.totalSupply
+        );
         vm.expectEmit(true, true, true, true);
-        emit Airdropped(expectedToken, recipients);
-
-        ERC20 token = airdropper.createToken(
-            name,
-            symbol,
-            totalSupply,
-            recipients
+        emit DropCreated(
+            1,
+            expectedToken,
+            merkleRoot,
+            dropArgs.totalTokens,
+            dropArgs.startTimestamp,
+            dropArgs.expirationTimestamp
         );
 
-        assertEq(token.name(), name);
-        assertEq(token.symbol(), symbol);
-        assertEq(token.totalSupply(), totalSupply);
+        (ERC20 token, uint256 dropId) = airdropper.createTokenAndAirdrop(
+            tokenArgs,
+            dropArgs
+        );
 
-        assertEq(token.balanceOf(recipients[0].addr), 100e18);
-        assertEq(token.balanceOf(recipients[1].addr), 200e18);
-        assertEq(token.balanceOf(recipients[2].addr), 300e18);
-        assertEq(token.balanceOf(address(this)), 400e18);
+        assertEq(token.name(), tokenArgs.name);
+        assertEq(token.symbol(), tokenArgs.symbol);
+        assertEq(token.totalSupply(), tokenArgs.totalSupply);
+
+        (
+            bytes32 merkleRoot_,
+            uint256 totalTokens,
+            uint256 claimedTokens,
+            address tokenAddress,
+            uint40 startTimestamp,
+            uint40 expirationTimestamp,
+            address expirationRecipient
+        ) = dropper.drops(dropId);
+
+        assertEq(dropId, 1);
+        assertEq(merkleRoot_, dropArgs.merkleRoot);
+        assertEq(totalTokens, dropArgs.totalTokens);
+        assertEq(claimedTokens, 0);
+        assertEq(tokenAddress, address(token));
+        assertEq(startTimestamp, dropArgs.startTimestamp);
+        assertEq(expirationTimestamp, dropArgs.expirationTimestamp);
+        assertEq(expirationRecipient, dropArgs.expirationRecipient);
+
+        assertEq(token.balanceOf(address(dropper)), dropArgs.totalTokens);
+        assertEq(
+            token.balanceOf(address(this)),
+            tokenArgs.totalSupply - dropArgs.totalTokens
+        );
     }
 
-    function testCreateToken_noRecipients() public {
-        string memory name = "Test Token";
-        string memory symbol = "TTT";
-        uint256 totalSupply = 1000e18;
+    function testCreateTokenAndAirdrop_noRemainingBalance() public {
+        ERC20Airdropper.TokenArgs memory tokenArgs = ERC20Airdropper.TokenArgs({
+            name: "Test Token",
+            symbol: "TTT",
+            totalSupply: 1000e18
+        });
 
-        ERC20Airdropper.Recipient[]
-            memory recipients = new ERC20Airdropper.Recipient[](0);
+        bytes32 merkleRoot = keccak256(abi.encode(vm.addr(1), 100e18));
+        ERC20Airdropper.DropArgs memory dropArgs = ERC20Airdropper.DropArgs({
+            merkleRoot: merkleRoot,
+            totalTokens: tokenArgs.totalSupply,
+            startTimestamp: uint40(block.timestamp),
+            expirationTimestamp: uint40(block.timestamp + 1 days),
+            expirationRecipient: address(this),
+            merkleTreeURI: "ipfs://merkle-tree",
+            dropDescription: "Test Airdrop"
+        });
 
-        ERC20 token = airdropper.createToken(
-            name,
-            symbol,
-            totalSupply,
-            recipients
-        );
+        (ERC20 token, ) = airdropper.createTokenAndAirdrop(tokenArgs, dropArgs);
 
-        assertEq(token.balanceOf(address(this)), totalSupply);
-    }
-
-    function testCreateToken_noRemainingBalance() public {
-        string memory name = "Test Token";
-        string memory symbol = "TTT";
-        uint256 totalSupply = 1000e18;
-
-        ERC20Airdropper.Recipient[]
-            memory recipients = new ERC20Airdropper.Recipient[](3);
-        recipients[0] = ERC20Airdropper.Recipient(vm.addr(1), 200e18);
-        recipients[1] = ERC20Airdropper.Recipient(vm.addr(2), 300e18);
-        recipients[2] = ERC20Airdropper.Recipient(vm.addr(3), 500e18);
-
-        ERC20 token = airdropper.createToken(
-            name,
-            symbol,
-            totalSupply,
-            recipients
-        );
-
-        assertEq(token.balanceOf(recipients[0].addr), 200e18);
-        assertEq(token.balanceOf(recipients[1].addr), 300e18);
-        assertEq(token.balanceOf(recipients[2].addr), 500e18);
+        assertEq(token.balanceOf(address(dropper)), dropArgs.totalTokens);
         assertEq(token.balanceOf(address(this)), 0);
     }
 
-    function testCreateToken_totalAmountsExceedsTotalSupply() public {
-        string memory name = "Test Token";
-        string memory symbol = "TTT";
-        uint256 totalSupply = 1000e18;
+    function testCreateTokenAndAirdrop_totalTokensExceedsTotalSupply() public {
+        ERC20Airdropper.TokenArgs memory tokenArgs = ERC20Airdropper.TokenArgs({
+            name: "Test Token",
+            symbol: "TTT",
+            totalSupply: 1000e18
+        });
 
-        ERC20Airdropper.Recipient[]
-            memory recipients = new ERC20Airdropper.Recipient[](3);
-        recipients[0] = ERC20Airdropper.Recipient(vm.addr(1), 200e18);
-        recipients[1] = ERC20Airdropper.Recipient(vm.addr(2), 300e18);
-        recipients[2] = ERC20Airdropper.Recipient(vm.addr(3), 600e18);
+        bytes32 merkleRoot = keccak256(abi.encode(vm.addr(1), 100e18));
+        ERC20Airdropper.DropArgs memory dropArgs = ERC20Airdropper.DropArgs({
+            merkleRoot: merkleRoot,
+            totalTokens: 1200e18,
+            startTimestamp: uint40(block.timestamp),
+            expirationTimestamp: uint40(block.timestamp + 1 days),
+            expirationRecipient: address(this),
+            merkleTreeURI: "ipfs://merkle-tree",
+            dropDescription: "Test Airdrop"
+        });
 
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IERC20Errors.ERC20InsufficientBalance.selector,
-                address(airdropper),
-                500e18, // Remaining balance in airdropper
-                600e18 // Amount to transfer to last recipient
-            )
-        );
-        airdropper.createToken(name, symbol, totalSupply, recipients);
+        vm.expectRevert();
+        airdropper.createTokenAndAirdrop(tokenArgs, dropArgs);
     }
 }

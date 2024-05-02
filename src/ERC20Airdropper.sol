@@ -1,13 +1,25 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import "./GovernableERC20.sol";
-import "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {GovernableERC20} from "./GovernableERC20.sol";
+import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import {Dropper} from "./vendor/Dropper.sol";
 
 contract ERC20Airdropper {
-    struct Recipient {
-        address addr;
-        uint256 amount;
+    struct TokenArgs {
+        string name;
+        string symbol;
+        uint256 totalSupply;
+    }
+
+    struct DropArgs {
+        bytes32 merkleRoot;
+        uint256 totalTokens;
+        uint40 startTimestamp;
+        uint40 expirationTimestamp;
+        address expirationRecipient;
+        string merkleTreeURI;
+        string dropDescription;
     }
 
     event ERC20Created(
@@ -16,35 +28,67 @@ contract ERC20Airdropper {
         string symbol,
         uint256 totalSupply
     );
-    event Airdropped(address indexed token, Recipient[] recipients);
 
-    function createToken(
-        string memory name,
-        string memory symbol,
-        uint256 totalSupply,
-        Recipient[] memory recipients
-    ) external returns (ERC20) {
+    event DropCreated(
+        uint256 indexed dropId,
+        address indexed token,
+        bytes32 merkleRoot,
+        uint256 totalTokens,
+        uint40 startTimestamp,
+        uint40 expirationTimestamp
+    );
+
+    Dropper public immutable DROPPER;
+
+    constructor(Dropper _dropper) {
+        DROPPER = _dropper;
+    }
+
+    function createTokenAndAirdrop(
+        TokenArgs memory tokenArgs,
+        DropArgs memory dropArgs
+    ) external returns (ERC20, uint256) {
         GovernableERC20 token = new GovernableERC20(
-            name,
-            symbol,
-            totalSupply,
+            tokenArgs.name,
+            tokenArgs.symbol,
+            tokenArgs.totalSupply,
             address(this)
         );
 
-        emit ERC20Created(address(token), name, symbol, totalSupply);
+        emit ERC20Created(
+            address(token),
+            tokenArgs.name,
+            tokenArgs.symbol,
+            tokenArgs.totalSupply
+        );
 
-        if (recipients.length > 0) {
-            for (uint256 i = 0; i < recipients.length; i++) {
-                token.transfer(recipients[i].addr, recipients[i].amount);
-            }
-            emit Airdropped(address(token), recipients);
-        }
+        token.approve(address(DROPPER), dropArgs.totalTokens);
+
+        uint256 dropId = DROPPER.createDrop(
+            dropArgs.merkleRoot,
+            dropArgs.totalTokens,
+            address(token),
+            dropArgs.startTimestamp,
+            dropArgs.expirationTimestamp,
+            dropArgs.expirationRecipient,
+            dropArgs.merkleTreeURI,
+            dropArgs.dropDescription
+        );
+
+        emit DropCreated(
+            dropId,
+            address(token),
+            dropArgs.merkleRoot,
+            dropArgs.totalTokens,
+            dropArgs.startTimestamp,
+            dropArgs.expirationTimestamp
+        );
 
         uint256 remaining = token.balanceOf(address(this));
         if (remaining > 0) {
             token.transfer(msg.sender, remaining);
         }
 
-        return token;
+        return (token, dropId);
     }
 }
