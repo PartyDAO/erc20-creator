@@ -24,12 +24,7 @@ contract GovernableERC20Test is Test {
         uint256 totalSupply = 1_000_000e18;
         address receiver = vm.addr(1);
 
-        GovernableERC20 token = _createToken(
-            name,
-            symbol,
-            totalSupply,
-            receiver
-        );
+        GovernableERC20 token = _createToken(name, symbol, totalSupply, receiver);
 
         vm.prank(receiver);
         token.delegate(receiver);

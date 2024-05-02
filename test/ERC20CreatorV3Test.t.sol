@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8;
 
-import {Test} from "forge-std/Test.sol";
-import {MockUniswapV3Deployer} from "./mock/MockUniswapV3Deployer.t.sol";
-import {ERC20CreatorV3, IERC20, FeeRecipient} from "src/ERC20CreatorV3.sol";
-import {FeeCollector, IWETH} from "src/FeeCollector.sol";
-import {MockUniswapNonfungiblePositionManager} from "test/mock/MockUniswapNonfungiblePositionManager.t.sol";
-import {ITokenDistributor, Party} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
-import {MockTokenDistributor} from "./mock/MockTokenDistributor.t.sol";
-import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
-import {IUniswapV3Factory} from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import {MockParty} from "./mock/MockParty.t.sol";
+import { Test } from "forge-std/Test.sol";
+import { MockUniswapV3Deployer } from "./mock/MockUniswapV3Deployer.t.sol";
+import { ERC20CreatorV3, IERC20, FeeRecipient } from "src/ERC20CreatorV3.sol";
+import { FeeCollector, IWETH } from "src/FeeCollector.sol";
+import { MockUniswapNonfungiblePositionManager } from "test/mock/MockUniswapNonfungiblePositionManager.t.sol";
+import { ITokenDistributor, Party } from "party-protocol/contracts/distribution/ITokenDistributor.sol";
+import { MockTokenDistributor } from "./mock/MockTokenDistributor.t.sol";
+import { INonfungiblePositionManager } from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
+import { IUniswapV3Factory } from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import { MockParty } from "./mock/MockParty.t.sol";
 
 contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
     UniswapV3Deployment internal uniswap;
@@ -70,21 +70,14 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
             0,
             type(uint112).max
         );
-        tokenConfig.numTokensForLP = bound(
-            tokenConfig.numTokensForLP,
-            1e9,
-            type(uint112).max
-        );
+        tokenConfig.numTokensForLP = bound(tokenConfig.numTokensForLP, 1e9, type(uint112).max);
         ethForLp = bound(ethForLp, 1e9, type(uint112).max);
 
         tokenConfig.totalSupply =
             tokenConfig.numTokensForDistribution +
             tokenConfig.numTokensForRecipient +
             tokenConfig.numTokensForLP;
-        vm.assume(
-            tokenConfig.totalSupply < type(uint112).max &&
-                tokenConfig.totalSupply > 0
-        );
+        vm.assume(tokenConfig.totalSupply < type(uint112).max && tokenConfig.totalSupply > 0);
 
         vm.deal(address(party), ethForLp);
 
@@ -103,7 +96,7 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
 
         vm.prank(address(party));
         IERC20 token = IERC20(
-            creator.createToken{value: ethForLp}(
+            creator.createToken{ value: ethForLp }(
                 address(party),
                 feeRecipient,
                 "My Test Token",
@@ -119,35 +112,21 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
             address(this).balance,
             beforeBalanceThis + (ethForLp * 100) / 10_000 // Got the fee
         );
-        assertEq(
-            token.balanceOf(address(this)),
-            tokenConfig.numTokensForRecipient
-        );
+        assertEq(token.balanceOf(address(this)), tokenConfig.numTokensForRecipient);
         assertEq(token.balanceOf(pool), tokenConfig.numTokensForLP);
-        assertEq(
-            token.balanceOf(address(distributor)),
-            tokenConfig.numTokensForDistribution
-        );
-        assertEq(
-            IERC20(uniswap.WETH).balanceOf(pool),
-            ethForLp - (ethForLp * 100) / 10_000
-        );
+        assertEq(token.balanceOf(address(distributor)), tokenConfig.numTokensForDistribution);
+        assertEq(IERC20(uniswap.WETH).balanceOf(pool), ethForLp - (ethForLp * 100) / 10_000);
 
         FeeRecipient[] memory feeRecipients = feeCollector.getFeeRecipients(
-            MockUniswapNonfungiblePositionManager(uniswap.POSITION_MANAGER)
-                .lastTokenId()
+            MockUniswapNonfungiblePositionManager(uniswap.POSITION_MANAGER).lastTokenId()
         );
         assertEq(feeRecipients.length, 1);
         assertEq(
             abi.encode(feeRecipients[0]),
-            abi.encode(
-                FeeRecipient({recipient: feeRecipient, percentageBps: 10_000})
-            )
+            abi.encode(FeeRecipient({ recipient: feeRecipient, percentageBps: 10_000 }))
         );
 
-        (, bytes memory res) = address(token).call(
-            abi.encodeWithSignature("totalSupply()")
-        );
+        (, bytes memory res) = address(token).call(abi.encodeWithSignature("totalSupply()"));
         uint256 totalSupply = abi.decode(res, (uint256));
         assertEq(totalSupply, tokenConfig.totalSupply);
     }
@@ -174,10 +153,7 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
         creator.setFeeRecipient(address(this));
     }
 
-    event FeeRecipientUpdated(
-        address indexed oldFeeRecipient,
-        address indexed newFeeRecipient
-    );
+    event FeeRecipientUpdated(address indexed oldFeeRecipient, address indexed newFeeRecipient);
 
     function test_setFeeRecipient_success() external {
         vm.expectEmit();
@@ -191,10 +167,7 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
         creator.setFeeBasisPoints(2_000);
     }
 
-    event FeeBasisPointsUpdated(
-        uint16 oldFeeBasisPoints,
-        uint16 newFeeBasisPoints
-    );
+    event FeeBasisPointsUpdated(uint16 oldFeeBasisPoints, uint16 newFeeBasisPoints);
 
     function test_setFeeBasisPoints_success() external {
         vm.expectEmit();

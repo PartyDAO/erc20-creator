@@ -4,8 +4,8 @@ pragma solidity ^0.8;
 import "forge-std/Test.sol";
 
 import "../src/ERC20Creator.sol";
-import {ERC20Votes} from "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import {MockParty} from "./mock/MockParty.t.sol";
+import { ERC20Votes } from "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import { MockParty } from "./mock/MockParty.t.sol";
 
 // MUST run with --fork $SEPOLIA_RPC_URL --evm-version shanghai
 
@@ -22,12 +22,8 @@ contract ERC20CreatorTest is Test {
     uint16 feeBasisPoints;
 
     function setUp() public {
-        tokenDistributor = ITokenDistributor(
-            0xf0560F963538017CAA5081D96f839FE5D265acCB
-        );
-        uniswapV2Router = IUniswapV2Router02(
-            0x86dcd3293C53Cf8EFd7303B57beb2a3F671dDE98
-        );
+        tokenDistributor = ITokenDistributor(0xf0560F963538017CAA5081D96f839FE5D265acCB);
+        uniswapV2Router = IUniswapV2Router02(0x86dcd3293C53Cf8EFd7303B57beb2a3F671dDE98);
         uniswapV2Factory = IUniswapV2Factory(uniswapV2Router.factory());
         weth = uniswapV2Router.WETH();
 
@@ -61,7 +57,7 @@ contract ERC20CreatorTest is Test {
 
         ERC20Votes token = ERC20Votes(
             address(
-                creator.createToken{value: eth}(
+                creator.createToken{ value: eth }(
                     address(party),
                     "Leet H4x0rs",
                     "1337",
@@ -82,10 +78,7 @@ contract ERC20CreatorTest is Test {
         assertEq(ERC20(weth).balanceOf(pair), eth - fee);
         assertEq(feeRecipient.balance, fee);
         assertEq(token.balanceOf(receiver), numTokensForRecipient);
-        assertEq(
-            token.balanceOf(address(tokenDistributor)),
-            numTokensForDistribution
-        );
+        assertEq(token.balanceOf(address(tokenDistributor)), numTokensForDistribution);
         assertEq(token.totalSupply(), totalSupply);
 
         Vm.Wallet memory wallet = vm.createWallet("Tester");

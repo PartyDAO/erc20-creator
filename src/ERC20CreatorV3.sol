@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Math} from "openzeppelin-contracts/contracts/utils/math/Math.sol";
-import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
-import {IMulticall} from "v3-periphery/interfaces/IMulticall.sol";
-import {IUniswapV3Factory} from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import {IUniswapV3Pool} from "v3-core/contracts/interfaces/IUniswapV3Pool.sol";
-import {IERC721Receiver} from "openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
-import {ITokenDistributor, IERC20, Party} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
-import {GovernableERC20} from "./GovernableERC20.sol";
-import {FeeRecipient} from "./FeeCollector.sol";
+import { Math } from "openzeppelin-contracts/contracts/utils/math/Math.sol";
+import { INonfungiblePositionManager } from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
+import { IMulticall } from "v3-periphery/interfaces/IMulticall.sol";
+import { IUniswapV3Factory } from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import { IUniswapV3Pool } from "v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import { IERC721Receiver } from "openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol";
+import { ITokenDistributor, IERC20, Party } from "party-protocol/contracts/distribution/ITokenDistributor.sol";
+import { GovernableERC20 } from "./GovernableERC20.sol";
+import { FeeRecipient } from "./FeeCollector.sol";
 
 contract ERC20CreatorV3 is IERC721Receiver {
     struct TokenDistributionConfiguration {
@@ -29,15 +29,9 @@ contract ERC20CreatorV3 is IERC721Receiver {
         TokenDistributionConfiguration config
     );
 
-    event FeeRecipientUpdated(
-        address indexed oldFeeRecipient,
-        address indexed newFeeRecipient
-    );
+    event FeeRecipientUpdated(address indexed oldFeeRecipient, address indexed newFeeRecipient);
 
-    event FeeBasisPointsUpdated(
-        uint16 oldFeeBasisPoints,
-        uint16 newFeeBasisPoints
-    );
+    event FeeBasisPointsUpdated(uint16 oldFeeBasisPoints, uint16 newFeeBasisPoints);
 
     error InvalidTokenDistribution();
     error OnlyFeeRecipient();
@@ -84,8 +78,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
         uint16 feeBasisPoints_,
         uint16 poolFee
     ) {
-        if (poolFee != 500 && poolFee != 3000 && poolFee != 10_000)
-            revert InvalidPoolFee();
+        if (poolFee != 500 && poolFee != 3000 && poolFee != 10_000) revert InvalidPoolFee();
         if (feeBasisPoints_ > 5e3) revert InvalidFeeBasisPoints();
 
         TOKEN_DISTRIBUTOR = tokenDistributor;
@@ -99,9 +92,7 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
         int24 tickSpacing = UNISWAP_V3_FACTORY.feeAmountTickSpacing(POOL_FEE);
         MAX_TICK = (887272 /* TickMath.MAX_TICK */ / tickSpacing) * tickSpacing;
-        MIN_TICK =
-            (-887272 /* TickMath.MIN_TICK */ / tickSpacing) *
-            tickSpacing;
+        MIN_TICK = (-887272 /* TickMath.MIN_TICK */ / tickSpacing) * tickSpacing;
     }
 
     /// @notice Creates a new ERC20 token, LPs it in a locked full range Uniswap V3 position, and distributes some of the new token to party members.
@@ -137,19 +128,14 @@ contract ERC20CreatorV3 is IERC721Receiver {
         IERC20 token = IERC20(
             address(
                 new GovernableERC20{
-                    salt: keccak256(
-                        abi.encode(blockhash(block.number - 1), msg.sender)
-                    )
+                    salt: keccak256(abi.encode(blockhash(block.number - 1), msg.sender))
                 }(name, symbol, config.totalSupply, address(this))
             )
         );
 
         if (config.numTokensForDistribution > 0) {
             // Create distribution
-            token.transfer(
-                address(TOKEN_DISTRIBUTOR),
-                config.numTokensForDistribution
-            );
+            token.transfer(address(TOKEN_DISTRIBUTOR), config.numTokensForDistribution);
             TOKEN_DISTRIBUTOR.createErc20Distribution(
                 token,
                 Party(payable(party)),
@@ -173,22 +159,13 @@ contract ERC20CreatorV3 is IERC721Receiver {
                 : (config.numTokensForLP, msg.value - feeAmount);
 
             // Create and initialize pool. Reverts if pool already created.
-            address pool = UNISWAP_V3_FACTORY.createPool(
-                address(token),
-                WETH,
-                POOL_FEE
-            );
+            address pool = UNISWAP_V3_FACTORY.createPool(address(token), WETH, POOL_FEE);
 
             // Initialize pool for the derived starting price
-            uint160 sqrtPriceX96 = uint160(
-                (Math.sqrt((amount1 * 1e18) / amount0) * _X96) / 1e9
-            );
+            uint160 sqrtPriceX96 = uint160((Math.sqrt((amount1 * 1e18) / amount0) * _X96) / 1e9);
             IUniswapV3Pool(pool).initialize(sqrtPriceX96);
 
-            token.approve(
-                address(UNISWAP_V3_POSITION_MANAGER),
-                config.numTokensForLP
-            );
+            token.approve(address(UNISWAP_V3_POSITION_MANAGER), config.numTokensForLP);
 
             // Use multicall to sweep back excess ETH
             bytes[] memory calls = new bytes[](2);
@@ -210,12 +187,9 @@ contract ERC20CreatorV3 is IERC721Receiver {
                     })
                 )
             );
-            calls[1] = abi.encodePacked(
-                UNISWAP_V3_POSITION_MANAGER.refundETH.selector
-            );
-            bytes memory mintReturnData = IMulticall(
-                address(UNISWAP_V3_POSITION_MANAGER)
-            ).multicall{value: msg.value - feeAmount}(calls)[0];
+            calls[1] = abi.encodePacked(UNISWAP_V3_POSITION_MANAGER.refundETH.selector);
+            bytes memory mintReturnData = IMulticall(address(UNISWAP_V3_POSITION_MANAGER))
+                .multicall{ value: msg.value - feeAmount }(calls)[0];
 
             lpTokenId = abi.decode(mintReturnData, (uint256));
         }
@@ -237,19 +211,16 @@ contract ERC20CreatorV3 is IERC721Receiver {
 
         // Transfer fee
         if (feeAmount > 0) {
-            feeRecipient.call{value: feeAmount, gas: 100_000}("");
+            feeRecipient.call{ value: feeAmount, gas: 100_000 }("");
         }
 
         // Transfer remaining ETH to the party
         if (address(this).balance > 0) {
-            payable(party).call{value: address(this).balance, gas: 100_000}("");
+            payable(party).call{ value: address(this).balance, gas: 100_000 }("");
         }
 
         FeeRecipient[] memory recipients = new FeeRecipient[](1);
-        recipients[0] = FeeRecipient({
-            recipient: payable(lpFeeRecipient),
-            percentageBps: 10_000
-        });
+        recipients[0] = FeeRecipient({ recipient: payable(lpFeeRecipient), percentageBps: 10_000 });
 
         // Transfer LP to fee collector contract
         UNISWAP_V3_POSITION_MANAGER.safeTransferFrom(

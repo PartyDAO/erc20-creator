@@ -9,6 +9,7 @@
 Click "Use this template" on [GitHub](https://github.com/foundry-rs/forge-template) to create a new repository with this repo as the initial state.
 
 Or, if your repo already exists, run:
+
 ```sh
 forge init
 forge build
@@ -25,12 +26,12 @@ pragma solidity 0.8.10;
 import "forge-std/Test.sol";
 
 contract ContractTest is Test {
-    function testExample() public {
-        vm.roll(100);
-        console.log(1);
-        emit log("hi");
-        assertTrue(true);
-    }
+  function testExample() public {
+    vm.roll(100);
+    console.log(1);
+    emit log("hi");
+    assertTrue(true);
+  }
 }
 ```
 

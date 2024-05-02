@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8;
 
-import {ITokenDistributor} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
+import { ITokenDistributor } from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 
 contract MockTokenDistributor {
     function createErc20Distribution(
@@ -15,9 +15,5 @@ contract MockTokenDistributor {
         address party,
         address payable feeRecipient,
         uint16 feeBps
-    )
-        external
-        payable
-        returns (ITokenDistributor.DistributionInfo memory info)
-    {}
+    ) external payable returns (ITokenDistributor.DistributionInfo memory info) {}
 }
