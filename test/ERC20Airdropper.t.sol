@@ -10,8 +10,11 @@ contract ERC20AirdropperTest is Test {
         address indexed token,
         string name,
         string symbol,
+        string image,
+        string description,
         uint256 totalSupply
     );
+
     event DropCreated(
         uint256 indexed dropId,
         address indexed token,
@@ -33,6 +36,8 @@ contract ERC20AirdropperTest is Test {
         ERC20Airdropper.TokenArgs memory tokenArgs = ERC20Airdropper.TokenArgs({
             name: "Test Token",
             symbol: "TTT",
+            image: "ipfs://token-image",
+            description: "A test token",
             totalSupply: 1000e18
         });
 
@@ -53,6 +58,8 @@ contract ERC20AirdropperTest is Test {
             expectedToken,
             tokenArgs.name,
             tokenArgs.symbol,
+            tokenArgs.image,
+            tokenArgs.description,
             tokenArgs.totalSupply
         );
         vm.expectEmit(true, true, true, true);
@@ -104,6 +111,8 @@ contract ERC20AirdropperTest is Test {
         ERC20Airdropper.TokenArgs memory tokenArgs = ERC20Airdropper.TokenArgs({
             name: "Test Token",
             symbol: "TTT",
+            image: "ipfs://token-image",
+            description: "A test token",
             totalSupply: 1000e18
         });
 
@@ -128,6 +137,8 @@ contract ERC20AirdropperTest is Test {
         ERC20Airdropper.TokenArgs memory tokenArgs = ERC20Airdropper.TokenArgs({
             name: "Test Token",
             symbol: "TTT",
+            image: "ipfs://token-image",
+            description: "A test token",
             totalSupply: 1000e18
         });
 
@@ -144,5 +155,33 @@ contract ERC20AirdropperTest is Test {
 
         vm.expectRevert();
         airdropper.createTokenAndAirdrop(tokenArgs, dropArgs);
+    }
+
+    function testCreateTokenOnly() public {
+        ERC20Airdropper.TokenArgs memory tokenArgs = ERC20Airdropper.TokenArgs({
+            name: "Test Token",
+            symbol: "TTT",
+            image: "ipfs://token-image",
+            description: "A test token without airdrop",
+            totalSupply: 1000e18
+        });
+
+        address expectedToken = vm.computeCreateAddress(address(airdropper), 1);
+        vm.expectEmit(true, true, true, true);
+        emit ERC20Created(
+            expectedToken,
+            tokenArgs.name,
+            tokenArgs.symbol,
+            tokenArgs.image,
+            tokenArgs.description,
+            tokenArgs.totalSupply
+        );
+
+        ERC20 token = airdropper.createToken(tokenArgs, address(this));
+
+        assertEq(token.name(), tokenArgs.name);
+        assertEq(token.symbol(), tokenArgs.symbol);
+        assertEq(token.totalSupply(), tokenArgs.totalSupply);
+        assertEq(token.balanceOf(address(this)), tokenArgs.totalSupply);
     }
 }

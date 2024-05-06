@@ -9,6 +9,10 @@ contract ERC20Airdropper {
     struct TokenArgs {
         string name;
         string symbol;
+        // Token metadata image URI that only gets emitted (not stored on-chain)
+        string image;
+        // Token metadata description that only gets emitted (not stored on-chain)
+        string description;
         uint256 totalSupply;
     }
 
@@ -26,6 +30,8 @@ contract ERC20Airdropper {
         address indexed token,
         string name,
         string symbol,
+        string image,
+        string description,
         uint256 totalSupply
     );
 
@@ -47,24 +53,12 @@ contract ERC20Airdropper {
     function createTokenAndAirdrop(
         TokenArgs memory tokenArgs,
         DropArgs memory dropArgs
-    ) external returns (ERC20, uint256) {
-        GovernableERC20 token = new GovernableERC20(
-            tokenArgs.name,
-            tokenArgs.symbol,
-            tokenArgs.totalSupply,
-            address(this)
-        );
-
-        emit ERC20Created(
-            address(token),
-            tokenArgs.name,
-            tokenArgs.symbol,
-            tokenArgs.totalSupply
-        );
+    ) external returns (ERC20 token, uint256 dropId) {
+        token = createToken(tokenArgs, address(this));
 
         token.approve(address(DROPPER), dropArgs.totalTokens);
 
-        uint256 dropId = DROPPER.createDrop(
+        dropId = DROPPER.createDrop(
             dropArgs.merkleRoot,
             dropArgs.totalTokens,
             address(token),
@@ -88,7 +82,26 @@ contract ERC20Airdropper {
         if (remaining > 0) {
             token.transfer(msg.sender, remaining);
         }
+    }
 
-        return (token, dropId);
+    function createToken(
+        TokenArgs memory tokenArgs,
+        address receiver
+    ) public returns (ERC20 token) {
+        token = new GovernableERC20(
+            tokenArgs.name,
+            tokenArgs.symbol,
+            tokenArgs.totalSupply,
+            receiver
+        );
+
+        emit ERC20Created(
+            address(token),
+            tokenArgs.name,
+            tokenArgs.symbol,
+            tokenArgs.image,
+            tokenArgs.description,
+            tokenArgs.totalSupply
+        );
     }
 }
