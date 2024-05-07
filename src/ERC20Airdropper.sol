@@ -46,8 +46,8 @@ contract ERC20Airdropper {
 
     Dropper public immutable DROPPER;
 
-    constructor(Dropper _dropper) {
-        DROPPER = _dropper;
+    constructor(Dropper dropper) {
+        DROPPER = dropper;
     }
 
     function createTokenAndAirdrop(
