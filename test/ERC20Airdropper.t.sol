@@ -3,7 +3,6 @@ pragma solidity ^0.8;
 
 import "forge-std/Test.sol";
 import "src/ERC20Airdropper.sol";
-import "src/vendor/Dropper.sol";
 
 contract ERC20AirdropperTest is Test {
     event ERC20Created(
@@ -72,10 +71,7 @@ contract ERC20AirdropperTest is Test {
             dropArgs.expirationTimestamp
         );
 
-        (ERC20 token, uint256 dropId) = airdropper.createTokenAndAirdrop(
-            tokenArgs,
-            dropArgs
-        );
+        (ERC20 token, uint256 dropId) = airdropper.createTokenAndAirdrop(tokenArgs, dropArgs);
 
         assertEq(token.name(), tokenArgs.name);
         assertEq(token.symbol(), tokenArgs.symbol);
@@ -101,10 +97,7 @@ contract ERC20AirdropperTest is Test {
         assertEq(expirationRecipient, dropArgs.expirationRecipient);
 
         assertEq(token.balanceOf(address(dropper)), dropArgs.totalTokens);
-        assertEq(
-            token.balanceOf(address(this)),
-            tokenArgs.totalSupply - dropArgs.totalTokens
-        );
+        assertEq(token.balanceOf(address(this)), tokenArgs.totalSupply - dropArgs.totalTokens);
     }
 
     function testCreateTokenAndAirdrop_noRemainingBalance() public {

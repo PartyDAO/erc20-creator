@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8;
 
-import {GovernableERC20} from "./GovernableERC20.sol";
-import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
-import {Dropper} from "./vendor/Dropper.sol";
+import { GovernableERC20 } from "./GovernableERC20.sol";
+import { ERC20 } from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+import { Dropper } from "dropper-util/src/Dropper.sol";
 
 contract ERC20Airdropper {
     struct TokenArgs {
