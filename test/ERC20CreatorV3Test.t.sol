@@ -23,9 +23,8 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
         address indexed token,
         address indexed party,
         address indexed recipient,
-        string name,
-        string symbol,
         uint256 ethValue,
+        ERC20CreatorV3.TokenMetadata metadata,
         ERC20CreatorV3.TokenDistributionConfiguration config
     );
 
@@ -57,8 +56,10 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
 
     function testCreatorV3_createToken(
         ERC20CreatorV3.TokenDistributionConfiguration memory tokenConfig,
+        ERC20CreatorV3.TokenMetadata memory metadata,
         uint256 ethForLp,
-        address feeRecipient
+        address feeRecipient,
+        address owner
     ) public {
         tokenConfig.numTokensForDistribution = bound(
             tokenConfig.numTokensForDistribution,
@@ -88,9 +89,8 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
             address(0),
             address(party),
             address(this),
-            "My Test Token",
-            "MTT",
             ethForLp,
+            metadata,
             tokenConfig
         );
 
@@ -99,8 +99,7 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
             creator.createToken{ value: ethForLp }(
                 address(party),
                 feeRecipient,
-                "My Test Token",
-                "MTT",
+                metadata,
                 tokenConfig,
                 address(this)
             )

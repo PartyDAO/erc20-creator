@@ -6,14 +6,14 @@ import "src/ERC20Airdropper.sol";
 
 contract ERC20AirdropperTest is Test {
     event ERC20Created(
-        address indexed token,
         string name,
         string symbol,
         string image,
         string description,
-        uint256 totalSupply
+        uint256 totalSupply,
+        address receiver,
+        address owner
     );
-
     event DropCreated(
         uint256 indexed dropId,
         address indexed token,
@@ -35,9 +35,10 @@ contract ERC20AirdropperTest is Test {
         ERC20Airdropper.TokenArgs memory tokenArgs = ERC20Airdropper.TokenArgs({
             name: "Test Token",
             symbol: "TTT",
-            image: "ipfs://token-image",
+            image: "ipfs://exampleImage",
             description: "A test token",
-            totalSupply: 1000e18
+            totalSupply: 1000e18,
+            owner: vm.addr(2)
         });
 
         bytes32 merkleRoot = keccak256(abi.encode(vm.addr(1), 100e18));
@@ -51,16 +52,17 @@ contract ERC20AirdropperTest is Test {
             dropDescription: "Test Airdrop"
         });
 
-        address expectedToken = vm.computeCreateAddress(address(airdropper), 1);
         vm.expectEmit(true, true, true, true);
         emit ERC20Created(
-            expectedToken,
             tokenArgs.name,
             tokenArgs.symbol,
             tokenArgs.image,
             tokenArgs.description,
-            tokenArgs.totalSupply
+            tokenArgs.totalSupply,
+            address(airdropper),
+            tokenArgs.owner
         );
+        address expectedToken = vm.computeCreateAddress(address(airdropper), 1);
         vm.expectEmit(true, true, true, true);
         emit DropCreated(
             1,
@@ -106,7 +108,8 @@ contract ERC20AirdropperTest is Test {
             symbol: "TTT",
             image: "ipfs://token-image",
             description: "A test token",
-            totalSupply: 1000e18
+            totalSupply: 1000e18,
+            owner: vm.addr(2)
         });
 
         bytes32 merkleRoot = keccak256(abi.encode(vm.addr(1), 100e18));
@@ -132,7 +135,8 @@ contract ERC20AirdropperTest is Test {
             symbol: "TTT",
             image: "ipfs://token-image",
             description: "A test token",
-            totalSupply: 1000e18
+            totalSupply: 1000e18,
+            owner: vm.addr(2)
         });
 
         bytes32 merkleRoot = keccak256(abi.encode(vm.addr(1), 100e18));
@@ -156,18 +160,19 @@ contract ERC20AirdropperTest is Test {
             symbol: "TTT",
             image: "ipfs://token-image",
             description: "A test token without airdrop",
-            totalSupply: 1000e18
+            totalSupply: 1000e18,
+            owner: vm.addr(2)
         });
 
-        address expectedToken = vm.computeCreateAddress(address(airdropper), 1);
         vm.expectEmit(true, true, true, true);
         emit ERC20Created(
-            expectedToken,
             tokenArgs.name,
             tokenArgs.symbol,
             tokenArgs.image,
             tokenArgs.description,
-            tokenArgs.totalSupply
+            tokenArgs.totalSupply,
+            address(this),
+            tokenArgs.owner
         );
 
         ERC20 token = airdropper.createToken(tokenArgs, address(this));

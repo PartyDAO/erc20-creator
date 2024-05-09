@@ -14,6 +14,7 @@ contract ERC20Airdropper {
         // Token metadata description that only gets emitted (not stored on-chain)
         string description;
         uint256 totalSupply;
+        address owner;
     }
 
     struct DropArgs {
@@ -25,15 +26,6 @@ contract ERC20Airdropper {
         string merkleTreeURI;
         string dropDescription;
     }
-
-    event ERC20Created(
-        address indexed token,
-        string name,
-        string symbol,
-        string image,
-        string description,
-        uint256 totalSupply
-    );
 
     event DropCreated(
         uint256 indexed dropId,
@@ -91,17 +83,11 @@ contract ERC20Airdropper {
         token = new GovernableERC20(
             tokenArgs.name,
             tokenArgs.symbol,
-            tokenArgs.totalSupply,
-            receiver
-        );
-
-        emit ERC20Created(
-            address(token),
-            tokenArgs.name,
-            tokenArgs.symbol,
             tokenArgs.image,
             tokenArgs.description,
-            tokenArgs.totalSupply
+            tokenArgs.totalSupply,
+            receiver,
+            tokenArgs.owner
         );
     }
 }

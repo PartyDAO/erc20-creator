@@ -5,26 +5,61 @@ import "forge-std/Test.sol";
 import "../src/GovernableERC20.sol";
 
 contract GovernableERC20Test is Test {
+    event ImageUpdated(string newImage);
+    event DescriptionUpdated(string newDescription);
+    event ERC20Created(
+        string name,
+        string symbol,
+        string image,
+        string description,
+        uint256 totalSupply,
+        address receiver,
+        address owner
+    );
+
     function _createToken(
         string memory name,
         string memory symbol,
+        string memory image,
+        string memory description,
         uint256 totalSupply,
-        address receiver
+        address receiver,
+        address owner
     ) internal returns (GovernableERC20) {
-        return new GovernableERC20(name, symbol, totalSupply, receiver);
+        return new GovernableERC20(name, symbol, image, description, totalSupply, receiver, owner);
     }
 
     function _createToken() internal returns (GovernableERC20) {
-        return _createToken("Test", "TST", 1_000_000e18, vm.addr(1));
+        return
+            _createToken(
+                "Test",
+                "TST",
+                "ipfs://exampleImage",
+                "description",
+                1_000_000e18,
+                vm.addr(1),
+                vm.addr(2)
+            );
     }
 
     function test_creation() public {
         string memory name = "Test";
         string memory symbol = "TST";
+        string memory image = "ipfs://exampleImage";
+        string memory description = "description";
         uint256 totalSupply = 1_000_000e18;
         address receiver = vm.addr(1);
+        address owner = vm.addr(2);
 
-        GovernableERC20 token = _createToken(name, symbol, totalSupply, receiver);
+        GovernableERC20 token = _createToken(
+            name,
+            symbol,
+            image,
+            description,
+            totalSupply,
+            receiver,
+            owner
+        );
 
         vm.prank(receiver);
         token.delegate(receiver);
@@ -34,6 +69,7 @@ contract GovernableERC20Test is Test {
         assertEq(token.totalSupply(), totalSupply);
         assertEq(token.balanceOf(receiver), totalSupply);
         assertEq(token.getVotes(receiver), totalSupply);
+        assertEq(token.owner(), owner);
     }
 
     function test_snapshotting() public {
@@ -57,5 +93,22 @@ contract GovernableERC20Test is Test {
         assertEq(token.balanceOf(other), amount);
         assertEq(token.getVotes(receiver), 1_000_000e18 - amount);
         assertEq(token.getVotes(other), amount);
+    }
+
+    function test_updateImageAndDescription() public {
+        GovernableERC20 token = _createToken();
+        address owner = vm.addr(2);
+        string memory newImage = "ipfs://newImage";
+        string memory newDescription = "New Description";
+
+        vm.expectEmit(true, true, true, true);
+        emit ImageUpdated(newImage);
+        vm.prank(owner);
+        token.updateImage(newImage);
+
+        vm.expectEmit(true, true, true, true);
+        emit DescriptionUpdated(newDescription);
+        vm.prank(owner);
+        token.updateDescription(newDescription);
     }
 }

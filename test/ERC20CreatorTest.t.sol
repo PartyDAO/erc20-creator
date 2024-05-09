@@ -47,6 +47,7 @@ contract ERC20CreatorTest is Test {
 
     function testForked_createToken() public {
         address receiver = vm.addr(2);
+        address owner = vm.addr(3);
         uint256 eth = 10 ether;
         uint256 fee = (eth * feeBasisPoints) / 1e4;
 
@@ -59,8 +60,12 @@ contract ERC20CreatorTest is Test {
             address(
                 creator.createToken{ value: eth }(
                     address(party),
-                    "Leet H4x0rs",
-                    "1337",
+                    ERC20Creator.TokenMetadata({
+                        name: "Leet H4x0rs",
+                        symbol: "1337",
+                        image: "ipfs://leet",
+                        description: "description"
+                    }),
                     ERC20Creator.TokenConfiguration({
                         totalSupply: totalSupply,
                         numTokensForDistribution: numTokensForDistribution,

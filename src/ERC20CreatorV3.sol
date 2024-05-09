@@ -19,13 +19,19 @@ contract ERC20CreatorV3 is IERC721Receiver {
         uint256 numTokensForLP; // Number of tokens for the Uniswap V3 LP
     }
 
+    struct TokenMetadata {
+        string name;
+        string symbol;
+        string image;
+        string description;
+    }
+
     event ERC20Created(
         address indexed token,
         address indexed party,
         address indexed recipient,
-        string name,
-        string symbol,
         uint256 ethValue,
+        TokenMetadata metadata,
         TokenDistributionConfiguration config
     );
 
@@ -99,16 +105,14 @@ contract ERC20CreatorV3 is IERC721Receiver {
     /// @dev The party is assumed to be `msg.sender`
     /// @param party The party to allocate the token distribution to
     /// @param lpFeeRecipient The address to receive the LP fee
-    /// @param name The name of the new token
-    /// @param symbol The symbol of the new token
+    /// @param metadata Token metadata including name, symbol, image, and description
     /// @param config Token distribution configuration. See above for additional information.
     /// @param tokenRecipientAddress The address to receive the tokens allocated for the token recipient
     /// @return token The address of the newly created token
     function createToken(
         address party,
         address lpFeeRecipient,
-        string memory name,
-        string memory symbol,
+        TokenMetadata memory metadata,
         TokenDistributionConfiguration memory config,
         address tokenRecipientAddress
     ) external payable returns (address) {
@@ -129,7 +133,15 @@ contract ERC20CreatorV3 is IERC721Receiver {
             address(
                 new GovernableERC20{
                     salt: keccak256(abi.encode(blockhash(block.number - 1), msg.sender))
-                }(name, symbol, config.totalSupply, address(this))
+                }(
+                    metadata.name,
+                    metadata.symbol,
+                    metadata.image,
+                    metadata.description,
+                    config.totalSupply,
+                    address(this),
+                    party
+                )
             )
         );
 
@@ -234,9 +246,8 @@ contract ERC20CreatorV3 is IERC721Receiver {
             address(token),
             party,
             tokenRecipientAddress,
-            name,
-            symbol,
             msg.value,
+            metadata,
             config
         );
 

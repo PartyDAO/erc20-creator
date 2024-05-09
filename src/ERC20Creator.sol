@@ -11,9 +11,8 @@ contract ERC20Creator {
         address indexed token,
         address indexed party,
         address indexed recipient,
-        string name,
-        string symbol,
         uint256 ethValue,
+        TokenMetadata metadata,
         TokenConfiguration config
     );
 
@@ -32,6 +31,12 @@ contract ERC20Creator {
     address public feeRecipient;
     uint16 public feeBasisPoints;
 
+    struct TokenMetadata {
+        string name;
+        string symbol;
+        string image;
+        string description;
+    }
     struct TokenConfiguration {
         uint256 totalSupply;
         uint256 numTokensForDistribution;
@@ -58,8 +63,7 @@ contract ERC20Creator {
 
     function createToken(
         address partyAddress,
-        string calldata name,
-        string calldata symbol,
+        TokenMetadata calldata metadata,
         TokenConfiguration calldata config,
         address recipientAddress
     ) external payable returns (ERC20 token) {
@@ -74,7 +78,15 @@ contract ERC20Creator {
         }
 
         // Create token
-        token = new GovernableERC20(name, symbol, config.totalSupply, address(this));
+        token = new GovernableERC20(
+            metadata.name,
+            metadata.symbol,
+            metadata.image,
+            metadata.description,
+            config.totalSupply,
+            address(this),
+            partyAddress
+        );
 
         if (config.numTokensForDistribution > 0) {
             // Create distribution
@@ -113,9 +125,8 @@ contract ERC20Creator {
             address(token),
             partyAddress,
             recipientAddress,
-            name,
-            symbol,
             ethValue,
+            metadata,
             config
         );
     }
