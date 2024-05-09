@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Unlicense
 pragma solidity ^0.8;
 
-import {ERC721} from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
-import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
-import {MockUniswapV3Factory} from "./MockUniswapV3Factory.t.sol";
-import {IMulticall} from "v3-periphery/interfaces/IMulticall.sol";
-import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {WETH9} from "./WETH.t.sol";
+import { ERC721 } from "openzeppelin-contracts/contracts/token/ERC721/ERC721.sol";
+import { INonfungiblePositionManager } from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
+import { MockUniswapV3Factory } from "./MockUniswapV3Factory.t.sol";
+import { IMulticall } from "v3-periphery/interfaces/IMulticall.sol";
+import { IERC20 } from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import { WETH9 } from "./WETH.t.sol";
 import "forge-std/Test.sol";
 
 contract MockUniswapNonfungiblePositionManager is ERC721, IMulticall, Test {
@@ -16,10 +16,7 @@ contract MockUniswapNonfungiblePositionManager is ERC721, IMulticall, Test {
     uint256 public lastTokenId;
     mapping(uint256 => IERC20) private _token;
 
-    constructor(
-        address weth,
-        address factory
-    ) ERC721("Uniswap V3 LP", "UNI-V3-LP") {
+    constructor(address weth, address factory) ERC721("Uniswap V3 LP", "UNI-V3-LP") {
         WETH = WETH9(payable(weth));
         FACTORY = MockUniswapV3Factory(factory);
     }
@@ -29,32 +26,20 @@ contract MockUniswapNonfungiblePositionManager is ERC721, IMulticall, Test {
     ) external payable returns (uint256 tokenId, uint128, uint256, uint256) {
         tokenId = ++lastTokenId;
 
-        address pool = FACTORY.getPool(
-            params.token0,
-            params.token1,
-            params.fee
-        );
+        address pool = FACTORY.getPool(params.token0, params.token1, params.fee);
         if (params.token0 != address(WETH) || msg.value == 0) {
             _token[tokenId] = IERC20(params.token0);
-            _token[tokenId].transferFrom(
-                msg.sender,
-                pool,
-                params.amount0Desired
-            );
+            _token[tokenId].transferFrom(msg.sender, pool, params.amount0Desired);
         } else {
-            WETH.deposit{value: params.amount0Desired}();
+            WETH.deposit{ value: params.amount0Desired }();
             WETH.transfer(pool, params.amount0Desired);
         }
 
         if (params.token1 != address(WETH)) {
             _token[tokenId] = IERC20(params.token1);
-            _token[tokenId].transferFrom(
-                msg.sender,
-                pool,
-                params.amount1Desired
-            );
+            _token[tokenId].transferFrom(msg.sender, pool, params.amount1Desired);
         } else {
-            WETH.deposit{value: params.amount1Desired}();
+            WETH.deposit{ value: params.amount1Desired }();
             WETH.transfer(pool, params.amount1Desired);
         }
 
@@ -63,14 +48,10 @@ contract MockUniswapNonfungiblePositionManager is ERC721, IMulticall, Test {
 
     function refundETH() external payable {}
 
-    function multicall(
-        bytes[] calldata calls
-    ) external payable returns (bytes[] memory results) {
+    function multicall(bytes[] calldata calls) external payable returns (bytes[] memory results) {
         results = new bytes[](calls.length);
         for (uint256 i = 0; i < calls.length; i++) {
-            (bool success, bytes memory result) = address(this).delegatecall(
-                calls[i]
-            );
+            (bool success, bytes memory result) = address(this).delegatecall(calls[i]);
             require(success);
             results[i] = result;
         }

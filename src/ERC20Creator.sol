@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import "../lib/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "../lib/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
 import "party-protocol/contracts/distribution/ITokenDistributor.sol";
-import {GovernableERC20, ERC20} from "./GovernableERC20.sol";
+import { GovernableERC20, ERC20 } from "./GovernableERC20.sol";
 
 contract ERC20Creator {
     event ERC20Created(
@@ -17,14 +17,8 @@ contract ERC20Creator {
         TokenConfiguration config
     );
 
-    event FeeRecipientUpdated(
-        address indexed oldFeeRecipient,
-        address indexed newFeeRecipient
-    );
-    event FeeBasisPointsUpdated(
-        uint16 oldFeeBasisPoints,
-        uint16 newFeeBasisPoints
-    );
+    event FeeRecipientUpdated(address indexed oldFeeRecipient, address indexed newFeeRecipient);
+    event FeeBasisPointsUpdated(uint16 oldFeeBasisPoints, uint16 newFeeBasisPoints);
 
     error InvalidFeeBasisPoints();
     error InvalidTokenDistribution();
@@ -80,19 +74,11 @@ contract ERC20Creator {
         }
 
         // Create token
-        token = new GovernableERC20(
-            name,
-            symbol,
-            config.totalSupply,
-            address(this)
-        );
+        token = new GovernableERC20(name, symbol, config.totalSupply, address(this));
 
         if (config.numTokensForDistribution > 0) {
             // Create distribution
-            token.transfer(
-                address(TOKEN_DISTRIBUTOR),
-                config.numTokensForDistribution
-            );
+            token.transfer(address(TOKEN_DISTRIBUTOR), config.numTokensForDistribution);
             TOKEN_DISTRIBUTOR.createErc20Distribution(
                 IERC20(address(token)),
                 Party(payable(partyAddress)),
@@ -108,7 +94,7 @@ contract ERC20Creator {
         // Create locked LP pair
         uint256 numETHForLP = ethValue - feeAmount;
         token.approve(address(UNISWAP_V2_ROUTER), config.numTokensForLP);
-        UNISWAP_V2_ROUTER.addLiquidityETH{value: numETHForLP}(
+        UNISWAP_V2_ROUTER.addLiquidityETH{ value: numETHForLP }(
             address(token),
             config.numTokensForLP,
             config.numTokensForLP,
@@ -121,7 +107,7 @@ contract ERC20Creator {
         token.transfer(recipientAddress, config.numTokensForRecipient);
 
         // Send fee
-        feeRecipient.call{value: feeAmount, gas: 100_000}("");
+        feeRecipient.call{ value: feeAmount, gas: 100_000 }("");
 
         emit ERC20Created(
             address(token),

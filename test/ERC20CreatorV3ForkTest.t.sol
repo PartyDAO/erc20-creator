@@ -4,12 +4,12 @@ pragma solidity ^0.8;
 import "forge-std/Test.sol";
 
 import "../src/ERC20CreatorV3.sol";
-import {ERC20Votes} from "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
-import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
-import {IUniswapV3Factory} from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import {MockParty} from "./mock/MockParty.t.sol";
-import {FeeCollector} from "src/FeeCollector.sol";
-import {IWETH} from "v2-periphery/interfaces/IWETH.sol";
+import { ERC20Votes } from "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
+import { INonfungiblePositionManager } from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
+import { IUniswapV3Factory } from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import { MockParty } from "./mock/MockParty.t.sol";
+import { FeeCollector } from "src/FeeCollector.sol";
+import { IWETH } from "v2-periphery/interfaces/IWETH.sol";
 
 contract ERC20CreatorV3ForkTest is Test {
     ERC20CreatorV3 public creator;
@@ -24,13 +24,9 @@ contract ERC20CreatorV3ForkTest is Test {
     address payable public partyDao;
 
     function setUp() public {
-        tokenDistributor = ITokenDistributor(
-            0xf0560F963538017CAA5081D96f839FE5D265acCB
-        );
+        tokenDistributor = ITokenDistributor(0xf0560F963538017CAA5081D96f839FE5D265acCB);
 
-        positionManager = INonfungiblePositionManager(
-            0x1238536071E1c677A632429e3655c799b22cDA52
-        );
+        positionManager = INonfungiblePositionManager(0x1238536071E1c677A632429e3655c799b22cDA52);
         weth = positionManager.WETH9();
         Vm.Wallet memory partyWallet = vm.createWallet("PartyDao");
         partyDao = payable(partyWallet.addr);
@@ -85,7 +81,8 @@ contract ERC20CreatorV3ForkTest is Test {
         vm.prank(address(party));
         ERC20Votes token = ERC20Votes(
             address(
-                creator.createToken{value: eth}(
+                creator.createToken{ value: eth }(
+                    address(party),
                     address(party),
                     "Leet H4x0rs",
                     "1337",
@@ -101,11 +98,7 @@ contract ERC20CreatorV3ForkTest is Test {
         );
         address pool = creator.getPool(address(token));
 
-        assertApproxEqRel(
-            token.balanceOf(pool),
-            numTokensForLP,
-            0.001 ether /* 0.1% tolerance */
-        );
+        assertApproxEqRel(token.balanceOf(pool), numTokensForLP, 0.001 ether /* 0.1% tolerance */);
         assertApproxEqRel(
             IERC20(weth).balanceOf(pool),
             eth - fee,
@@ -113,10 +106,7 @@ contract ERC20CreatorV3ForkTest is Test {
         );
         assertEq(partyDao.balance, fee);
         assertEq(token.balanceOf(receiver), numTokensForRecipient);
-        assertEq(
-            token.balanceOf(address(tokenDistributor)),
-            numTokensForDistribution
-        );
+        assertEq(token.balanceOf(address(tokenDistributor)), numTokensForDistribution);
         assertEq(token.totalSupply(), totalSupply);
 
         Vm.Wallet memory wallet = vm.createWallet("Tester");

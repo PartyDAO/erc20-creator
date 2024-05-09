@@ -2,15 +2,15 @@
 pragma solidity ^0.8;
 
 import "forge-std/Test.sol";
-import {MockUniswapV3Deployer, MockUniswapNonfungiblePositionManager} from "./mock/MockUniswapV3Deployer.t.sol";
-import {MockTokenDistributor} from "./mock/MockTokenDistributor.t.sol";
-import {MockParty} from "./mock/MockParty.t.sol";
-import {ERC20CreatorV3, IERC20} from "src/ERC20CreatorV3.sol";
-import {FeeCollector, FeeRecipient, TokenFeeInfo, IWETH} from "../src/FeeCollector.sol";
-import {INonfungiblePositionManager} from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
-import {ITokenDistributor} from "party-protocol/contracts/distribution/ITokenDistributor.sol";
-import {IUniswapV3Factory} from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
-import {Party} from "party-protocol/contracts/party/Party.sol";
+import { MockUniswapV3Deployer, MockUniswapNonfungiblePositionManager } from "./mock/MockUniswapV3Deployer.t.sol";
+import { MockTokenDistributor } from "./mock/MockTokenDistributor.t.sol";
+import { MockParty } from "./mock/MockParty.t.sol";
+import { ERC20CreatorV3, IERC20 } from "src/ERC20CreatorV3.sol";
+import { FeeCollector, FeeRecipient, TokenFeeInfo, IWETH } from "../src/FeeCollector.sol";
+import { INonfungiblePositionManager } from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
+import { ITokenDistributor } from "party-protocol/contracts/distribution/ITokenDistributor.sol";
+import { IUniswapV3Factory } from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
+import { Party } from "party-protocol/contracts/party/Party.sol";
 
 contract FeeCollectorTest is Test, MockUniswapV3Deployer {
     ERC20CreatorV3 internal creator;
@@ -45,12 +45,9 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         );
     }
 
-    function _setUpTokenAndPool()
-        internal
-        returns (IERC20 token, uint256 tokenId)
-    {
-        ERC20CreatorV3.TokenDistributionConfiguration
-            memory tokenConfig = ERC20CreatorV3.TokenDistributionConfiguration({
+    function _setUpTokenAndPool() internal returns (IERC20 token, uint256 tokenId) {
+        ERC20CreatorV3.TokenDistributionConfiguration memory tokenConfig = ERC20CreatorV3
+            .TokenDistributionConfiguration({
                 totalSupply: 1000000,
                 numTokensForDistribution: 500000,
                 numTokensForRecipient: 250000,
@@ -60,7 +57,8 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         vm.deal(address(party), 10e18);
         vm.prank(address(party));
         token = IERC20(
-            creator.createToken{value: 10e18}(
+            creator.createToken{ value: 10e18 }(
+                address(party),
                 address(party),
                 "My Test Token",
                 "MTT",
@@ -68,9 +66,7 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
                 address(this)
             )
         );
-        tokenId = MockUniswapNonfungiblePositionManager(
-            address(positionManager)
-        ).lastTokenId();
+        tokenId = MockUniswapNonfungiblePositionManager(address(positionManager)).lastTokenId();
     }
 
     function testCollectAndDistributeFees()
@@ -82,23 +78,17 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
 
         (token, tokenId) = _setUpTokenAndPool();
 
-        FeeRecipient[] memory storedRecipients = feeCollector.getFeeRecipients(
-            tokenId
-        );
+        FeeRecipient[] memory storedRecipients = feeCollector.getFeeRecipients(tokenId);
 
         for (uint256 i = 0; i < recipients.length; i++) {
             assertEq(storedRecipients[i].recipient, recipients[i].recipient);
-            assertEq(
-                storedRecipients[i].percentageBps,
-                recipients[i].percentageBps
-            );
+            assertEq(storedRecipients[i].percentageBps, recipients[i].percentageBps);
         }
 
         uint256 partyDaoBalanceBefore = partyDao.balance;
 
         // Collect and distribute fees
-        (uint256 ethAmount, uint256 tokenAmount) = feeCollector
-            .collectAndDistributeFees(tokenId);
+        (uint256 ethAmount, uint256 tokenAmount) = feeCollector.collectAndDistributeFees(tokenId);
 
         assertEq(ethAmount, 1e18);
         assertEq(tokenAmount, 1000e18);
@@ -139,5 +129,33 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
             abi.encodeWithSelector(FeeCollector.OnlyPartyDAO.selector)
         );
         feeCollector.setGlobalPartyDaoFeeBps(newFeeBps);
+    }
+
+    function test_createToken_lpFeeRecipientNotParty() external {
+        ERC20CreatorV3.TokenDistributionConfiguration memory tokenConfig = ERC20CreatorV3
+            .TokenDistributionConfiguration({
+                totalSupply: 1000000,
+                numTokensForDistribution: 500000,
+                numTokensForRecipient: 250000,
+                numTokensForLP: 250000
+            });
+
+        vm.deal(address(party), 10e18);
+        vm.prank(address(party));
+
+        creator.createToken{ value: 10e18 }(
+            address(party),
+            address(this),
+            "My Test Token",
+            "MTT",
+            tokenConfig,
+            address(this)
+        );
+        uint256 tokenId = MockUniswapNonfungiblePositionManager(address(positionManager))
+            .lastTokenId();
+
+        assertEq(feeCollector.getFeeRecipients(tokenId).length, 1);
+        assertEq(feeCollector.getFeeRecipients(tokenId)[0].recipient, address(this));
+        assertEq(feeCollector.getFeeRecipients(tokenId)[0].percentageBps, 1e4);
     }
 }
