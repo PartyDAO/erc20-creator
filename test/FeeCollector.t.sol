@@ -27,12 +27,7 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         distributor = ITokenDistributor(address(new MockTokenDistributor()));
         party = Party(payable(address(new MockParty())));
         partyDao = payable(vm.createWallet("PartyDAO").addr);
-        feeCollector = new FeeCollector(
-            positionManager,
-            partyDao,
-            5_000,
-            IWETH(uniswap.WETH)
-        );
+        feeCollector = new FeeCollector(positionManager, partyDao, 5_000, IWETH(uniswap.WETH));
         creator = new ERC20CreatorV3(
             distributor,
             positionManager,
@@ -69,10 +64,7 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         tokenId = MockUniswapNonfungiblePositionManager(address(positionManager)).lastTokenId();
     }
 
-    function testCollectAndDistributeFees()
-        public
-        returns (IERC20 token, uint256 tokenId)
-    {
+    function testCollectAndDistributeFees() public returns (IERC20 token, uint256 tokenId) {
         FeeRecipient[] memory recipients = new FeeRecipient[](1);
         recipients[0] = FeeRecipient(payable(address(party)), 1e4);
 
@@ -101,13 +93,10 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         assertEq(partyDao.balance - partyDaoBalanceBefore, expectedPartyDaoFee);
 
         for (uint256 i = 0; i < recipients.length; i++) {
-            uint256 expectedRecipientEth = (expectedRemainingEth *
-                recipients[i].percentageBps) / 1e4;
+            uint256 expectedRecipientEth = (expectedRemainingEth * recipients[i].percentageBps) /
+                1e4;
 
-            assertEq(
-                address(recipients[i].recipient).balance,
-                expectedRecipientEth
-            );
+            assertEq(address(recipients[i].recipient).balance, expectedRecipientEth);
 
             assertEq(token.balanceOf(recipients[i].recipient), tokenAmount);
         }
@@ -125,9 +114,7 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
 
     function testSetGlobalPartyDaoFeeBpsRevertNotPartyDAO() public {
         uint16 newFeeBps = 500; // 5%
-        vm.expectRevert(
-            abi.encodeWithSelector(FeeCollector.OnlyPartyDAO.selector)
-        );
+        vm.expectRevert(abi.encodeWithSelector(FeeCollector.OnlyPartyDAO.selector));
         feeCollector.setGlobalPartyDaoFeeBps(newFeeBps);
     }
 

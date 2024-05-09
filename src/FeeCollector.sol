@@ -110,12 +110,10 @@ contract FeeCollector is IERC721Receiver {
         }
 
         // Take PartyDAO fee on ETH from the LP position
-        uint256 partyDaoFee = (ethAmount *
-            _tokenIdToFeeInfo[tokenId].partyDaoFeeBps) / 1e4;
+        uint256 partyDaoFee = (ethAmount * _tokenIdToFeeInfo[tokenId].partyDaoFeeBps) / 1e4;
         PARTY_DAO.call{ value: partyDaoFee, gas: 100_000 }("");
 
-        FeeRecipient[] memory recipients = _tokenIdToFeeInfo[tokenId]
-            .recipients;
+        FeeRecipient[] memory recipients = _tokenIdToFeeInfo[tokenId].recipients;
 
         // Distribute the ETH and tokens to recipients
         uint256 remainingEthFees = ethAmount - partyDaoFee;
@@ -151,9 +149,7 @@ contract FeeCollector is IERC721Receiver {
      * @notice Retrieves the fee recipients for a given token ID.
      * @param tokenId The ID of the token for which to retrieve fee recipients.
      */
-    function getFeeRecipients(
-        uint256 tokenId
-    ) external view returns (FeeRecipient[] memory) {
+    function getFeeRecipients(uint256 tokenId) external view returns (FeeRecipient[] memory) {
         return _tokenIdToFeeInfo[tokenId].recipients;
     }
 
@@ -174,8 +170,7 @@ contract FeeCollector is IERC721Receiver {
         if (msg.sender != address(POSITION_MANAGER)) revert OnlyV3PositionManager();
 
         FeeRecipient[] memory _recipients = abi.decode(data, (FeeRecipient[]));
-        FeeRecipient[] storage recipients = _tokenIdToFeeInfo[tokenId]
-            .recipients;
+        FeeRecipient[] storage recipients = _tokenIdToFeeInfo[tokenId].recipients;
 
         _tokenIdToFeeInfo[tokenId].partyDaoFeeBps = globalPartyDaoFeeBps;
 

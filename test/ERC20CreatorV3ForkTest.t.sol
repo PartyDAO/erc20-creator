@@ -36,12 +36,7 @@ contract ERC20CreatorV3ForkTest is Test {
         party = Party(payable(address(new MockParty())));
         vm.label(address(party), "Party");
 
-        feeCollector = new FeeCollector(
-            positionManager,
-            partyDao,
-            5_000,
-            IWETH(address(weth))
-        );
+        feeCollector = new FeeCollector(positionManager, partyDao, 5_000, IWETH(address(weth)));
     }
 
     function testForked_createToken_1PercentFee() external {
