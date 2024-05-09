@@ -13,19 +13,28 @@ struct FeeRecipient {
     uint16 percentageBps;
 }
 
+struct TokenFeeInfo {
+    uint16 partyDaoFeeBps;
+    FeeRecipient[] recipients;
+}
+
 contract FeeCollector is IERC721Receiver {
+    /// @notice The NonfungiblePositionManager contract from Uniswap V3.
     INonfungiblePositionManager public immutable POSITION_MANAGER;
+    /// @notice The PartyDAO's multisig address.
     address payable public immutable PARTY_DAO;
+    /// @notice The WETH contract used by Uniswap V3.
     IWETH public immutable WETH;
 
-    uint16 public partyDaoFeeBps;
-
-    mapping(uint256 tokenId => FeeRecipient[] recipients) private _feeRecipients;
+    /// @notice The global fee percentage (in basis points) that goes to the PartyDAO.
+    uint16 public globalPartyDaoFeeBps;
+    mapping(uint256 => TokenFeeInfo) private _tokenIdToFeeInfo;
 
     error InvalidLPPosition();
     error OnlyPartyDAO();
     error OnlyV3PositionManager();
     error InvalidPercentageBps();
+    error ArityMismatch();
 
     event FeesCollectedAndDistributed(
         uint256 tokenId,
@@ -34,8 +43,14 @@ contract FeeCollector is IERC721Receiver {
         uint256 partyDaoFee,
         FeeRecipient[] recipients
     );
-    event PartyDaoFeeBpsUpdated(uint16 oldFeeBps, uint16 newFeeBps);
+    event GlobalPartyDaoFeeBpsUpdated(uint16 oldFeeBps, uint16 newFeeBps);
 
+    /**
+     * @param _positionManager The NonfungiblePositionManager contract from Uniswap V3.
+     * @param _partyDao The PartyDAO's multisig address.
+     * @param _weth The WETH contract used by Uniswap V3.
+     * @param _partyDaoFeeBps The fee percentage (in basis points) that goes to the PartyDAO.
+     */
     constructor(
         INonfungiblePositionManager _positionManager,
         address payable _partyDao,
@@ -45,9 +60,15 @@ contract FeeCollector is IERC721Receiver {
         POSITION_MANAGER = _positionManager;
         PARTY_DAO = _partyDao;
         WETH = _weth;
-        partyDaoFeeBps = _partyDaoFeeBps;
+        globalPartyDaoFeeBps = _partyDaoFeeBps;
     }
 
+    /**
+     * @notice Collects and distributes fees for a given token ID.
+     * @param tokenId The ID of the token for which to collect and distribute fees.
+     * @return ethAmount The amount of ETH collected as fees.
+     * @return tokenAmount The amount of tokens collected as fees.
+     */
     function collectAndDistributeFees(
         uint256 tokenId
     ) external returns (uint256 ethAmount, uint256 tokenAmount) {
@@ -89,10 +110,10 @@ contract FeeCollector is IERC721Receiver {
         }
 
         // Take PartyDAO fee on ETH from the LP position
-        uint256 partyDaoFee = (ethAmount * partyDaoFeeBps) / 1e4;
+        uint256 partyDaoFee = (ethAmount * _tokenIdToFeeInfo[tokenId].partyDaoFeeBps) / 1e4;
         PARTY_DAO.call{ value: partyDaoFee, gas: 100_000 }("");
 
-        FeeRecipient[] memory recipients = _feeRecipients[tokenId];
+        FeeRecipient[] memory recipients = _tokenIdToFeeInfo[tokenId].recipients;
 
         // Distribute the ETH and tokens to recipients
         uint256 remainingEthFees = ethAmount - partyDaoFee;
@@ -113,14 +134,31 @@ contract FeeCollector is IERC721Receiver {
         emit FeesCollectedAndDistributed(tokenId, ethAmount, tokenAmount, partyDaoFee, recipients);
     }
 
-    function setPartyDaoFeeBps(uint16 _partyDaoFeeBps) external {
+    /**
+     * @notice Updates the global PartyDAO fee in basis points to use for all future token IDs.
+     * @param newFeeBps The new fee percentage (in basis points) for the PartyDAO.
+     */
+    function setGlobalPartyDaoFeeBps(uint16 newFeeBps) external {
         if (msg.sender != PARTY_DAO) revert OnlyPartyDAO();
-        emit PartyDaoFeeBpsUpdated(partyDaoFeeBps, _partyDaoFeeBps);
-        partyDaoFeeBps = _partyDaoFeeBps;
+        if (newFeeBps > 1e4) revert InvalidPercentageBps();
+        emit GlobalPartyDaoFeeBpsUpdated(globalPartyDaoFeeBps, newFeeBps);
+        globalPartyDaoFeeBps = newFeeBps;
     }
 
+    /**
+     * @notice Retrieves the fee recipients for a given token ID.
+     * @param tokenId The ID of the token for which to retrieve fee recipients.
+     */
     function getFeeRecipients(uint256 tokenId) external view returns (FeeRecipient[] memory) {
-        return _feeRecipients[tokenId];
+        return _tokenIdToFeeInfo[tokenId].recipients;
+    }
+
+    /**
+     * @notice Retrieves the PartyDAO fee in basis points for a given token ID.
+     * @param tokenId The ID of the token for which to retrieve the PartyDAO fee.
+     */
+    function getPartyDaoFeeBps(uint256 tokenId) external view returns (uint16) {
+        return _tokenIdToFeeInfo[tokenId].partyDaoFeeBps;
     }
 
     function onERC721Received(
@@ -132,7 +170,9 @@ contract FeeCollector is IERC721Receiver {
         if (msg.sender != address(POSITION_MANAGER)) revert OnlyV3PositionManager();
 
         FeeRecipient[] memory _recipients = abi.decode(data, (FeeRecipient[]));
-        FeeRecipient[] storage recipients = _feeRecipients[tokenId];
+        FeeRecipient[] storage recipients = _tokenIdToFeeInfo[tokenId].recipients;
+
+        _tokenIdToFeeInfo[tokenId].partyDaoFeeBps = globalPartyDaoFeeBps;
 
         uint256 totalPercentageBps;
         for (uint256 i = 0; i < _recipients.length; i++) {
