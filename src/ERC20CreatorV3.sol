@@ -30,8 +30,9 @@ contract ERC20CreatorV3 is IERC721Receiver {
         address indexed token,
         address indexed party,
         address indexed recipient,
+        string name,
+        string symbol,
         uint256 ethValue,
-        TokenMetadata metadata,
         TokenDistributionConfiguration config
     );
 
@@ -246,8 +247,9 @@ contract ERC20CreatorV3 is IERC721Receiver {
             address(token),
             party,
             tokenRecipientAddress,
+            metadata.name,
+            metadata.symbol,
             msg.value,
-            metadata,
             config
         );
 

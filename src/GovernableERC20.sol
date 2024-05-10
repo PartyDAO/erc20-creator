@@ -6,17 +6,7 @@ import "openzeppelin-contracts/contracts/token/ERC20/extensions/ERC20Votes.sol";
 import "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 contract GovernableERC20 is ERC20Permit, ERC20Votes, Ownable {
-    event ImageUpdated(string newImage);
-    event DescriptionUpdated(string newDescription);
-    event ERC20Created(
-        string name,
-        string symbol,
-        string image,
-        string description,
-        uint256 totalSupply,
-        address receiver,
-        address owner
-    );
+    event MetadataSet(string image, string description);
 
     constructor(
         string memory name_,
@@ -29,17 +19,12 @@ contract GovernableERC20 is ERC20Permit, ERC20Votes, Ownable {
     ) ERC20(name_, symbol_) ERC20Permit(name_) Ownable(owner_) {
         _mint(receiver_, totalSupply_);
 
-        emit ERC20Created(name_, symbol_, image_, description_, totalSupply_, receiver_, owner_);
+        emit MetadataSet(image_, description_);
     }
 
-    /// @notice Emits updated image of the token. Only callable by the owner.
-    function updateImage(string memory image) public onlyOwner {
-        emit ImageUpdated(image);
-    }
-
-    /// @notice Emits updated description of the token. Only callable by the owner.
-    function updateDescription(string memory description) public onlyOwner {
-        emit DescriptionUpdated(description);
+    /// @notice Updates the emitted metadata for the token.
+    function setMetadata(string memory image, string memory description) public onlyOwner {
+        emit MetadataSet(image, description);
     }
 
     // The following functions are overrides required by Solidity.

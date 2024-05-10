@@ -9,7 +9,7 @@ import { MockParty } from "./mock/MockParty.t.sol";
 
 // MUST run with --fork $SEPOLIA_RPC_URL --evm-version shanghai
 
-contract ERC20CreatorTest is Test {
+contract ERC20CreatorForkedTest is Test {
     ERC20Creator creator;
 
     ITokenDistributor public tokenDistributor;

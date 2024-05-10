@@ -11,8 +11,9 @@ contract ERC20Creator {
         address indexed token,
         address indexed party,
         address indexed recipient,
+        string name,
+        string symbol,
         uint256 ethValue,
-        TokenMetadata metadata,
         TokenConfiguration config
     );
 
@@ -125,8 +126,9 @@ contract ERC20Creator {
             address(token),
             partyAddress,
             recipientAddress,
+            metadata.name,
+            metadata.symbol,
             ethValue,
-            metadata,
             config
         );
     }

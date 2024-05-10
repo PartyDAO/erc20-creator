@@ -5,17 +5,7 @@ import "forge-std/Test.sol";
 import "../src/GovernableERC20.sol";
 
 contract GovernableERC20Test is Test {
-    event ImageUpdated(string newImage);
-    event DescriptionUpdated(string newDescription);
-    event ERC20Created(
-        string name,
-        string symbol,
-        string image,
-        string description,
-        uint256 totalSupply,
-        address receiver,
-        address owner
-    );
+    event MetadataSet(string image, string description);
 
     function _createToken(
         string memory name,
@@ -50,6 +40,9 @@ contract GovernableERC20Test is Test {
         uint256 totalSupply = 1_000_000e18;
         address receiver = vm.addr(1);
         address owner = vm.addr(2);
+
+        vm.expectEmit(true, true, true, true);
+        emit MetadataSet(image, description);
 
         GovernableERC20 token = _createToken(
             name,
@@ -102,13 +95,9 @@ contract GovernableERC20Test is Test {
         string memory newDescription = "New Description";
 
         vm.expectEmit(true, true, true, true);
-        emit ImageUpdated(newImage);
-        vm.prank(owner);
-        token.updateImage(newImage);
+        emit MetadataSet(newImage, newDescription);
 
-        vm.expectEmit(true, true, true, true);
-        emit DescriptionUpdated(newDescription);
         vm.prank(owner);
-        token.updateDescription(newDescription);
+        token.setMetadata(newImage, newDescription);
     }
 }

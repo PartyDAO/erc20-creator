@@ -36,6 +36,14 @@ contract ERC20Airdropper {
         uint40 expirationTimestamp
     );
 
+    event ERC20Created(
+        address indexed token,
+        address indexed owner,
+        string name,
+        string symbol,
+        uint256 totalSupply
+    );
+
     Dropper public immutable DROPPER;
 
     constructor(Dropper dropper) {
@@ -88,6 +96,14 @@ contract ERC20Airdropper {
             tokenArgs.totalSupply,
             receiver,
             tokenArgs.owner
+        );
+
+        emit ERC20Created(
+            address(token),
+            tokenArgs.owner,
+            tokenArgs.name,
+            tokenArgs.symbol,
+            tokenArgs.totalSupply
         );
     }
 }

@@ -6,13 +6,11 @@ import "src/ERC20Airdropper.sol";
 
 contract ERC20AirdropperTest is Test {
     event ERC20Created(
+        address indexed token,
+        address indexed owner,
         string name,
         string symbol,
-        string image,
-        string description,
-        uint256 totalSupply,
-        address receiver,
-        address owner
+        uint256 totalSupply
     );
     event DropCreated(
         uint256 indexed dropId,
@@ -52,17 +50,15 @@ contract ERC20AirdropperTest is Test {
             dropDescription: "Test Airdrop"
         });
 
+        address expectedToken = vm.computeCreateAddress(address(airdropper), 1);
         vm.expectEmit(true, true, true, true);
         emit ERC20Created(
+            expectedToken,
+            tokenArgs.owner,
             tokenArgs.name,
             tokenArgs.symbol,
-            tokenArgs.image,
-            tokenArgs.description,
-            tokenArgs.totalSupply,
-            address(airdropper),
-            tokenArgs.owner
+            tokenArgs.totalSupply
         );
-        address expectedToken = vm.computeCreateAddress(address(airdropper), 1);
         vm.expectEmit(true, true, true, true);
         emit DropCreated(
             1,
@@ -164,15 +160,14 @@ contract ERC20AirdropperTest is Test {
             owner: vm.addr(2)
         });
 
+        address expectedToken = vm.computeCreateAddress(address(airdropper), 1);
         vm.expectEmit(true, true, true, true);
         emit ERC20Created(
+            expectedToken,
+            tokenArgs.owner,
             tokenArgs.name,
             tokenArgs.symbol,
-            tokenArgs.image,
-            tokenArgs.description,
-            tokenArgs.totalSupply,
-            address(this),
-            tokenArgs.owner
+            tokenArgs.totalSupply
         );
 
         ERC20 token = airdropper.createToken(tokenArgs, address(this));

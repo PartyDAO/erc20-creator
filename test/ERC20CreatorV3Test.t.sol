@@ -23,8 +23,9 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
         address indexed token,
         address indexed party,
         address indexed recipient,
+        string name,
+        string symbol,
         uint256 ethValue,
-        ERC20CreatorV3.TokenMetadata metadata,
         ERC20CreatorV3.TokenDistributionConfiguration config
     );
 
@@ -89,8 +90,9 @@ contract ERC20CreatorV3Test is Test, MockUniswapV3Deployer {
             address(0),
             address(party),
             address(this),
+            metadata.name,
+            metadata.symbol,
             ethForLp,
-            metadata,
             tokenConfig
         );
 
