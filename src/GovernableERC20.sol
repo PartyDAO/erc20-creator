@@ -23,7 +23,7 @@ contract GovernableERC20 is ERC20Permit, ERC20Votes, Ownable {
     }
 
     /// @notice Updates the emitted metadata for the token.
-    function setMetadata(string memory image, string memory description) public onlyOwner {
+    function setMetadata(string memory image, string memory description) external onlyOwner {
         emit MetadataSet(image, description);
     }
 
