@@ -6,7 +6,7 @@ import { MockUniswapV3Deployer, MockUniswapNonfungiblePositionManager } from "./
 import { MockTokenDistributor } from "./mock/MockTokenDistributor.t.sol";
 import { MockParty } from "./mock/MockParty.t.sol";
 import { ERC20CreatorV3, IERC20 } from "src/ERC20CreatorV3.sol";
-import { FeeCollector, FeeRecipient, IWETH } from "../src/FeeCollector.sol";
+import { FeeCollector, FeeRecipient, IWETH, Ownable } from "../src/FeeCollector.sol";
 import { INonfungiblePositionManager } from "v3-periphery/interfaces/INonfungiblePositionManager.sol";
 import { ITokenDistributor } from "party-protocol/contracts/distribution/ITokenDistributor.sol";
 import { IUniswapV3Factory } from "v3-core/contracts/interfaces/IUniswapV3Factory.sol";
@@ -100,14 +100,16 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
 
     function testSetPartyDaoFeeBps() public {
         uint16 newFeeBps = 500; // 5%
-        vm.prank(address(feeCollector.PARTY_DAO()));
+        vm.prank(address(feeCollector.owner()));
         feeCollector.setPartyDaoFeeBps(newFeeBps);
         assertEq(feeCollector.partyDaoFeeBps(), newFeeBps);
     }
 
-    function testSetPartyDaoFeeBpsRevertNotPartyDAO() public {
+    function testSetPartyDaoFeeBpsRevertNotOwner() public {
         uint16 newFeeBps = 500; // 5%
-        vm.expectRevert(abi.encodeWithSelector(FeeCollector.OnlyPartyDAO.selector));
+        vm.expectRevert(
+            abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, address(this))
+        );
         feeCollector.setPartyDaoFeeBps(newFeeBps);
     }
 

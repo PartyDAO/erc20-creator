@@ -143,7 +143,7 @@ contract FeeCollectorForkedTest is Test {
         // Check PartyDAO fee deduction
         uint256 expectedPartyDaoFee = (ethAmount * feeCollector.partyDaoFeeBps()) / 1e4;
         uint256 expectedRemainingEth = ethAmount - expectedPartyDaoFee;
-        assertEq(address(feeCollector.PARTY_DAO()).balance, expectedPartyDaoFee);
+        assertEq(address(feeCollector.owner()).balance, expectedPartyDaoFee);
 
         // Check distribution to recipient
         assertEq(address(party).balance - partyBalanceBefore, expectedRemainingEth);
