@@ -7,15 +7,15 @@ import { INonfungiblePositionManager } from "v3-periphery/interfaces/INonfungibl
 import { IWETH } from "../lib/v2-periphery/contracts/interfaces/IWETH.sol";
 import { Party } from "party-protocol/contracts/party/Party.sol";
 import { ITokenDistributor, IERC20 } from "party-protocol/contracts/distribution/ITokenDistributor.sol";
+import { Ownable } from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 struct FeeRecipient {
     address recipient;
     uint16 percentageBps;
 }
 
-contract FeeCollector is IERC721Receiver {
+contract FeeCollector is IERC721Receiver, Ownable {
     INonfungiblePositionManager public immutable POSITION_MANAGER;
-    address payable public immutable PARTY_DAO;
     IWETH public immutable WETH;
 
     uint16 public partyDaoFeeBps;
@@ -38,12 +38,11 @@ contract FeeCollector is IERC721Receiver {
 
     constructor(
         INonfungiblePositionManager _positionManager,
-        address payable _partyDao,
+        address payable _owner,
         uint16 _partyDaoFeeBps,
         IWETH _weth
-    ) {
+    ) Ownable(_owner) {
         POSITION_MANAGER = _positionManager;
-        PARTY_DAO = _partyDao;
         WETH = _weth;
         partyDaoFeeBps = _partyDaoFeeBps;
     }
@@ -90,7 +89,7 @@ contract FeeCollector is IERC721Receiver {
 
         // Take PartyDAO fee on ETH from the LP position
         uint256 partyDaoFee = (ethAmount * partyDaoFeeBps) / 1e4;
-        PARTY_DAO.call{ value: partyDaoFee, gas: 100_000 }("");
+        owner().call{ value: partyDaoFee, gas: 100_000 }("");
 
         FeeRecipient[] memory recipients = _feeRecipients[tokenId];
 
@@ -113,8 +112,7 @@ contract FeeCollector is IERC721Receiver {
         emit FeesCollectedAndDistributed(tokenId, ethAmount, tokenAmount, partyDaoFee, recipients);
     }
 
-    function setPartyDaoFeeBps(uint16 _partyDaoFeeBps) external {
-        if (msg.sender != PARTY_DAO) revert OnlyPartyDAO();
+    function setPartyDaoFeeBps(uint16 _partyDaoFeeBps) external onlyOwner {
         emit PartyDaoFeeBpsUpdated(partyDaoFeeBps, _partyDaoFeeBps);
         partyDaoFeeBps = _partyDaoFeeBps;
     }
@@ -152,6 +150,6 @@ contract FeeCollector is IERC721Receiver {
      * change in ABI.
      */
     function VERSION() external pure returns (string memory) {
-        return "1.0.0";
+        return "1.1.0";
     }
 }
