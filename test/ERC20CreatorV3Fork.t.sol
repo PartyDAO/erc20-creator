@@ -64,6 +64,7 @@ contract ERC20CreatorV3ForkTest is Test {
         );
 
         address receiver = vm.createWallet("Receiver").addr;
+        address owner = vm.createWallet("Owner").addr;
         uint256 eth = 10 ether;
         uint256 fee = (eth * feeBasisPoints) / 1e4;
 
@@ -79,8 +80,12 @@ contract ERC20CreatorV3ForkTest is Test {
                 creator.createToken{ value: eth }(
                     address(party),
                     address(party),
-                    "Leet H4x0rs",
-                    "1337",
+                    ERC20CreatorV3.TokenMetadata({
+                        name: "Leet H4x0rs",
+                        symbol: "1337",
+                        image: "ipfs://leet",
+                        description: "description"
+                    }),
                     ERC20CreatorV3.TokenDistributionConfiguration({
                         totalSupply: totalSupply,
                         numTokensForDistribution: numTokensForDistribution,

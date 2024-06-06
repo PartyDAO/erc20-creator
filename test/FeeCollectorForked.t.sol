@@ -77,8 +77,12 @@ contract FeeCollectorForkedTest is Test {
             creator.createToken{ value: 10e18 }(
                 address(party),
                 address(party),
-                "My Test Token",
-                "MTT",
+                ERC20CreatorV3.TokenMetadata({
+                    name: "Test",
+                    symbol: "TST",
+                    image: "ipfs://exampleImage",
+                    description: "description"
+                }),
                 tokenConfig,
                 address(0)
             )

@@ -55,8 +55,12 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
             creator.createToken{ value: 10e18 }(
                 address(party),
                 address(party),
-                "My Test Token",
-                "MTT",
+                ERC20CreatorV3.TokenMetadata({
+                    name: "My Test Token",
+                    symbol: "MTT",
+                    image: "ipfs://exampleImage",
+                    description: "description"
+                }),
                 tokenConfig,
                 address(this)
             )
@@ -128,8 +132,12 @@ contract FeeCollectorTest is Test, MockUniswapV3Deployer {
         creator.createToken{ value: 10e18 }(
             address(party),
             address(this),
-            "My Test Token",
-            "MTT",
+            ERC20CreatorV3.TokenMetadata({
+                name: "My Test Token",
+                symbol: "MTT",
+                image: "ipfs://exampleImage",
+                description: "description"
+            }),
             tokenConfig,
             address(this)
         );
