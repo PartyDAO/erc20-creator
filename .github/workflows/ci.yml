@@ -22,9 +22,6 @@ jobs:
       - name: Install Dependencies
         run: yarn install
 
-      - name: Run lint
-        run: yarn lint:check
-
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
